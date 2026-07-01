@@ -182,11 +182,15 @@
                 allowEscapeKey: false,
                 showCancelButton: false,
                 confirmButtonColor: '#0d6efd',
-                confirmButtonText: 'Verify'
+                confirmButtonText: 'Verify',
+                inputValidator: (value) => {
+                    if (!value) return 'PIN is required!';
+                }
             });
 
             if (pin) {
                 try {
+                    Swal.showLoading();
                     const res = await fetch(API_URL + 'auth', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -200,11 +204,15 @@
                         updateSyncUI();
                         loadAdminData();
                     } else {
-                        Swal.fire('Access Denied', 'Incorrect Admin PIN.', 'error').then(() => authenticateAdmin());
+                        await Swal.fire('Access Denied', 'Incorrect Admin PIN.', 'error');
+                        authenticateAdmin();
                     }
                 } catch (err) {
-                    Swal.fire('Error', 'Network connection failed.', 'error');
+                    await Swal.fire('Error', 'Network connection failed.', 'error');
+                    authenticateAdmin();
                 }
+            } else {
+                authenticateAdmin();
             }
         }
 
