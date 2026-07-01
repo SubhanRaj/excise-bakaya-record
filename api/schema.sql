@@ -12,8 +12,3 @@ CREATE TABLE excise_dues (
     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Re-insert test data
-INSERT INTO excise_dues (district_name, total_dues, collected_till_date) VALUES 
-('Lucknow', 50000000, 15000000),
-('Kanpur Nagar', 45000000, 20000000),
-('Agra', 30000000, 10000000);
