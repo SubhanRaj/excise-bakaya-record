@@ -1,3 +1,6 @@
+// In-memory store for rate limiting per edge-node instance
+const rateLimitMap = new Map();
+
 export default {
   async fetch(request, env) {
     // 1. Setup CORS so your frontend can communicate with this API safely
@@ -10,6 +13,32 @@ export default {
     // Handle CORS preflight requests
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
+    }
+
+    // Basic In-Memory Rate Limiting (Protects DB from brute force/spam)
+    const ip = request.headers.get("cf-connecting-ip") || "unknown";
+    const now = Date.now();
+    const windowMs = 60000; // 1 minute window
+    const maxRequests = 60; // Max 60 requests per IP per minute per edge node
+
+    // Prevent memory leaks under DDoS
+    if (rateLimitMap.size > 5000) rateLimitMap.clear();
+
+    let record = rateLimitMap.get(ip);
+    if (!record) {
+      rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs });
+    } else {
+      if (now > record.resetTime) {
+        rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs });
+      } else {
+        record.count++;
+        if (record.count > maxRequests) {
+          return Response.json(
+            { error: "Too Many Requests. Please try again later." },
+            { status: 429, headers: corsHeaders }
+          );
+        }
+      }
     }
 
     // Global API Key Authorization
