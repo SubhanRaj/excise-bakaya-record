@@ -4,12 +4,21 @@ export default {
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, X-API-Secret",
     };
 
     // Handle CORS preflight requests
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
+    }
+
+    // Global API Key Authorization
+    const apiSecret = request.headers.get("X-API-Secret");
+    if (!apiSecret || apiSecret !== env.API_SECRET) {
+      return Response.json(
+        { error: "Unauthorized: Invalid API Secret" },
+        { status: 401, headers: corsHeaders }
+      );
     }
 
     const url = new URL(request.url);

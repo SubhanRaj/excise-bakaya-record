@@ -174,7 +174,9 @@
 
         async function loadData() {
             try {
-                const res = await fetch(API_URL);
+                const res = await fetch(API_URL, {
+                    headers: { 'X-API-Secret': '63eefe946a94699dd661ebdd83150caec566e2c8c6cf63839165d4bf98f080f2' }
+                });
                 dbData = await res.json();
                 els.select.innerHTML = '<option value="">-- Select a District --</option>';
                 dbData.forEach(row => {
@@ -267,7 +269,7 @@
                 try {
                     const res = await fetch(API_URL, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'X-API-Secret': '63eefe946a94699dd661ebdd83150caec566e2c8c6cf63839165d4bf98f080f2' },
                         body: JSON.stringify(payload)
                     });
 
@@ -328,7 +330,7 @@
                     Swal.showLoading();
                     const res = await fetch(API_URL + 'verify-deo', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'X-API-Secret': '63eefe946a94699dd661ebdd83150caec566e2c8c6cf63839165d4bf98f080f2' },
                         body: JSON.stringify({ cug: cugNumber })
                     });
                     

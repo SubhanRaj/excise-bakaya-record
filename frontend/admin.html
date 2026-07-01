@@ -193,7 +193,7 @@
                     Swal.showLoading();
                     const res = await fetch(API_URL + 'auth', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'X-API-Secret': '63eefe946a94699dd661ebdd83150caec566e2c8c6cf63839165d4bf98f080f2' },
                         body: JSON.stringify({ pin: pin })
                     });
 
@@ -240,7 +240,9 @@
             try {
                 if (showToast) Swal.showLoading();
                 
-                const res = await fetch(API_URL);
+                const res = await fetch(API_URL, {
+                    headers: { 'X-API-Secret': '63eefe946a94699dd661ebdd83150caec566e2c8c6cf63839165d4bf98f080f2' }
+                });
                 if (!res.ok) throw new Error("Failed to fetch");
                 const dbData = await res.json();
                 
@@ -334,7 +336,7 @@
                 try {
                     const res = await fetch(API_URL + "unlock", {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'X-API-Secret': '63eefe946a94699dd661ebdd83150caec566e2c8c6cf63839165d4bf98f080f2' },
                         body: JSON.stringify({ id: id })
                     });
 
