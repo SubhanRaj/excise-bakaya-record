@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Excise Bakaya</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- DataTables Bootstrap 5 CSS -->
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: #f4f6f9;
+            padding-top: 30px;
+            padding-bottom: 50px;
+        }
+
+        .card {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border: none;
+            border-radius: 10px;
+        }
+
+        .table-responsive {
+            margin-top: 20px;
+        }
+
+        .amount-col {
+            text-align: right;
+            font-family: monospace;
+            font-size: 1.05em;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container-fluid px-4">
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3 class="text-primary m-0">Admin View: District-wise Excise Bakaya</h3>
+                <a href="index.html" class="btn btn-outline-secondary">Go to Data Entry</a>
+            </div>
+
+            <div class="table-responsive">
+                <table id="bakayaTable" class="table table-striped table-hover table-bordered w-100">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>District</th>
+                            <th>Total Dues</th>
+                            <th>Collected (Till PAC)</th>
+                            <th>Collected (After PAC)</th>
+                            <th>Batte Khatte</th>
+                            <th>HC Stayed</th>
+                            <th class="text-warning">Target Recovery</th>
+                            <th>Last Updated</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Data will be injected here via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery (Required for DataTables) -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <!-- DataTables Bootstrap 5 Integration -->
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+    <script>
+        const API_URL = "https://excise-bakaya-api.shubhanraj2002.workers.dev/api/dues";
+
+        // Utility to format numbers safely (Indian numbering system format if you prefer, or standard)
+        function formatNumber(num) {
+            if (!num) return "0";
+            return Number(num).toLocaleString('en-IN');
+        }
+
+        async function loadAdminData() {
+            try {
+                const res = await fetch(API_URL);
+                const dbData = await res.json();
+
+                const tbody = document.getElementById('tableBody');
+                let rowsHtml = '';
+
+                dbData.forEach(row => {
+                    // Safely parse numbers
+                    const totalDues = parseFloat(row.total_dues) || 0;
+                    const tillPac = parseFloat(row.collected_till_pac) || 0;
+                    const afterPac = parseFloat(row.collected_after_pac) || 0;
+                    const batte = parseFloat(row.batte_khatte) || 0;
+                    const hc = parseFloat(row.hc_stayed) || 0;
+
+                    // Re-calculate the logic on the fly for the admin view
+                    const duesLeft = totalDues - tillPac - afterPac;
+                    const targetRecovery = Math.max(0, duesLeft - batte - hc);
+
+                    // Format the timestamp
+                    const updatedTime = row.last_updated
+                        ? new Date(row.last_updated).toLocaleString('en-IN')
+                        : 'Never';
+
+                    rowsHtml += `
+                    <tr>
+                        <td class="fw-bold">${row.district_name}</td>
+                        <td class="amount-col">${formatNumber(totalDues)}</td>
+                        <td class="amount-col text-success">${formatNumber(tillPac)}</td>
+                        <td class="amount-col text-success">${formatNumber(afterPac)}</td>
+                        <td class="amount-col text-danger">${formatNumber(batte)}</td>
+                        <td class="amount-col text-danger">${formatNumber(hc)}</td>
+                        <td class="amount-col fw-bold text-primary">${formatNumber(targetRecovery)}</td>
+                        <td class="small text-muted">${updatedTime}</td>
+                    </tr>
+                `;
+                });
+
+                tbody.innerHTML = rowsHtml;
+
+                // Initialize DataTables after the HTML is injected
+                $('#bakayaTable').DataTable({
+                    pageLength: 25, // Default rows per page
+                    order: [[0, 'asc']], // Default sort by District Name alphabetically
+                    language: {
+                        search: "Filter records:"
+                    }
+                });
+
+            } catch (err) {
+                console.error("Error fetching data:", err);
+                document.getElementById('tableBody').innerHTML = `<tr><td colspan="8" class="text-center text-danger">Failed to load data. Check API connection.</td></tr>`;
+            }
+        }
+
+        // Load data on page ready
+        $(document).ready(function () {
+            loadAdminData();
+        });
+    </script>
+
+</body>
+
+</html>
