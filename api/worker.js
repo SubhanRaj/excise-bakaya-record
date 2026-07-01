@@ -26,8 +26,9 @@ export default {
           .join("");
 
         // SHA-256 Hash for "2026" (Change this hash to match your desired PIN)
+        // SHA-256 Hash for "2026"
         const expectedHash =
-          "7bc0b98eb6c34beeb1918a032ddb6e7fae446552bbfa79ff10be69752f9b69b3";
+          "158a323a7ba44870f23d96f1516dd70aa48e9a72db4ebb026b0a89e212a208ab";
 
         if (hashHex === expectedHash) {
           return Response.json({ success: true }, { headers: corsHeaders });
