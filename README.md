@@ -6,7 +6,7 @@ A production-grade internal portal built for the Department of Excise, Governmen
 
 This is a monorepo utilizing a serverless architecture on the Cloudflare ecosystem.
 
-*   **Frontend**: Deployed to Cloudflare Pages. Built with vanilla JavaScript, HTML, CSS, Bootstrap 5, SweetAlert2 (for modals/alerts), Cleave.js (for INR formatting), DataTables, Dexie.js (for caching), and SheetJS (for Excel exports).
+*   **Frontend**: Deployed to Cloudflare Pages. Built with vanilla JavaScript, HTML, CSS, Bootstrap 5, SweetAlert2 (for modals/alerts), Cleave.js (for INR formatting), DataTables, Dexie.js (for caching), SheetJS (for Excel exports), and Tabler Icons (for UI iconography).
     *   `index.html`: The Data Entry Operator (DEO) Portal.
     *   `admin.html`: The Commissioner/Admin Dashboard.
 *   **Backend (API)**: Deployed to Cloudflare Workers (`worker.js`).
@@ -39,13 +39,13 @@ The `excise_dues` table tracks financial records for the districts:
 *   **Secure Submission**: Triggers SweetAlert2 for DEO name and sends POST to the API.
 
 ### Admin Dashboard (`admin.html`)
-*   **Authentication**: PIN-protected access (verified against Cloudflare secret `env.ADMIN_PIN`). Uses `sessionStorage` to persist login during the session, with a convenient Logout button.
+*   **Authentication**: PIN-protected access (verified against Cloudflare secret `env.ADMIN_PIN`). Uses `sessionStorage` to persist login during the session, with a secure Logout button (Tabler icon).
 *   **Offline Caching**: Uses IndexedDB (via Dexie.js) to instantly load the 59 districts upon revisit, drastically reducing database load.
 *   **Manual Sync**: A manual "Sync" button is available to fetch fresh data from the server, alongside a "Last Sync" timestamp.
 *   **Data Export**: 
     *   **Excel (.xlsx)**: Utilizes SheetJS to generate heavily formatted Excel reports natively on the client device.
     *   **SQL Backup (.sql)**: Generates a raw `.sql` file with `UPDATE` statements for the entire dataset.
-*   **Grid Management**: DataTables grid displaying all districts with sorting, filtering, and a sticky header. Includes an "Unlock" feature to reset the `is_locked` status for specific DEOs.
+*   **Premium Grid UI**: DataTables grid displaying all districts with advanced typography (Inter/Segoe UI), soft shadow hover animations, and a styled sticky header. All financial columns are prepended with the Indian Rupee symbol (₹). Includes an "Unlock" feature to reset the `is_locked` status for specific DEOs. Note: The "Data Entry" navigation button is removed to maintain a strict admin-only focus.
 
 ## API Endpoints (`worker.js`)
 *   `GET /`: Returns all district records.

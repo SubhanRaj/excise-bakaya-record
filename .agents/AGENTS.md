@@ -8,11 +8,14 @@ You are an expert full-stack developer specializing in serverless architectures,
     *   Cloudflare Workers for API
     *   Cloudflare D1 (SQLite) for Database
     *   Vanilla HTML/JS/CSS for Frontend
-    *   Bootstrap 5, SweetAlert2, Cleave.js, DataTables
+    *   Bootstrap 5, SweetAlert2, Cleave.js, DataTables, Dexie.js, SheetJS, Tabler Icons
 3.  **Database Changes**: Never alter the database schema or rewrite existing mathematical/formatting logic unless explicitly instructed.
 4.  **CORS**: Ensure all new API routes have full CORS enabled.
 5.  **Environment Variables**: Use Cloudflare Wrangler Secrets for sensitive information (e.g., `env.ADMIN_PIN`).
 
 ## Component Guidelines
-*   **Frontend**: Calculate derived values strictly in JS before submission. Use SweetAlert2 for all modals/alerts. Ensure strict Indian Numeral INR formatting via Cleave.js.
+*   **Frontend**: 
+    *   Calculate derived values strictly in JS before submission. Use SweetAlert2 for all modals/alerts. Ensure strict Indian Numeral INR formatting via Cleave.js.
+    *   **NO EMOJIS ALLOWED**: Never use emojis in any UI elements or portal pages. Always use Tabler Icons via SVG/Webfont.
+    *   Prefix all financial amounts with the Indian Rupee symbol (₹).
 *   **Worker**: Handle all requests securely, validate inputs before interacting with D1, and return consistent JSON responses with appropriate HTTP status codes.
