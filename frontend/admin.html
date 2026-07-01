@@ -8,6 +8,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         body {
             background-color: #f4f6f9;
@@ -85,9 +87,16 @@
 
     <div id="mainContainer" class="container-fluid px-4 blur-content">
         <div class="card p-4">
-            <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom flex-wrap gap-3">
                 <h3 class="text-primary m-0 fw-bold">Admin View: District-wise Excise Bakaya</h3>
-                <a href="index.html" class="btn btn-outline-primary fw-bold shadow-sm">Go to Data Entry</a>
+                <div class="d-flex align-items-center gap-2">
+                    <span id="lastSyncTime" class="text-muted small fw-bold me-2"></span>
+                    <button id="btnSync" class="btn btn-outline-secondary btn-sm fw-bold shadow-sm" onclick="syncData()">🔄 Sync</button>
+                    <button id="btnExportExcel" class="btn btn-outline-success btn-sm fw-bold shadow-sm" onclick="exportToExcel()">📊 Excel</button>
+                    <button id="btnExportSQL" class="btn btn-outline-info btn-sm fw-bold shadow-sm" onclick="exportToSQL()">💾 SQL</button>
+                    <a href="index.html" class="btn btn-outline-primary btn-sm fw-bold shadow-sm">Data Entry</a>
+                    <button id="btnLogout" class="btn btn-outline-danger btn-sm fw-bold shadow-sm" onclick="logoutAdmin()">Logout</button>
+                </div>
             </div>
 
             <div class="table-responsive">
@@ -119,13 +128,33 @@
 
     <script>
         const API_URL = "https://excise-bakaya-api.shubhanraj2002.workers.dev/";
+        
+        const db = new Dexie("AdminBakayaDB");
+        db.version(1).stores({
+            districts: 'id, district_name'
+        });
+
+        let lastSyncDate = localStorage.getItem('admin_last_sync');
 
         function formatNumber(num) {
             if (!num) return "0";
             return Number(num).toLocaleString('en-IN');
         }
+        
+        function updateSyncUI() {
+            if (lastSyncDate) {
+                document.getElementById('lastSyncTime').textContent = "Last Sync: " + new Date(lastSyncDate).toLocaleString('en-IN');
+            }
+        }
 
         async function authenticateAdmin() {
+            if (sessionStorage.getItem('admin_auth') === 'true') {
+                document.getElementById('mainContainer').classList.remove('blur-content');
+                updateSyncUI();
+                loadAdminData();
+                return;
+            }
+
             const { value: pin } = await Swal.fire({
                 title: 'Admin Authorization',
                 text: 'Enter your 4-digit PIN to access this dashboard',
@@ -147,8 +176,10 @@
                     });
 
                     if (res.ok) {
+                        sessionStorage.setItem('admin_auth', 'true');
                         document.getElementById('mainContainer').classList.remove('blur-content');
                         Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Verified Successfully', showConfirmButton: false, timer: 1500 });
+                        updateSyncUI();
                         loadAdminData();
                     } else {
                         Swal.fire('Access Denied', 'Incorrect Admin PIN.', 'error').then(() => authenticateAdmin());
@@ -159,74 +190,108 @@
             }
         }
 
+        function logoutAdmin() {
+            sessionStorage.removeItem('admin_auth');
+            location.reload();
+        }
+
         async function loadAdminData() {
             try {
-                const res = await fetch(API_URL);
-                const dbData = await res.json();
-
-                const tbody = document.getElementById('tableBody');
-                let rowsHtml = '';
-
-                dbData.forEach(row => {
-                    const totalDues = parseFloat(row.total_dues) || 0;
-                    const tillDate = parseFloat(row.collected_till_date) || 0;
-                    const afterDate = parseFloat(row.collected_after_date) || 0;
-                    const batteCount = parseInt(row.batte_khatte_count) || 0;
-                    const batteAmount = parseFloat(row.batte_khatte_amount) || 0;
-                    const courtStayed = parseFloat(row.court_stayed_amount) || 0;
-
-                    const duesLeft = totalDues - tillDate - afterDate;
-                    const targetRecovery = Math.max(0, duesLeft - batteAmount - courtStayed);
-
-                    const updatedTime = row.locked_at
-                        ? new Date(row.locked_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'short', timeStyle: 'short' })
-                        : '<span class="text-muted">Not Locked</span>';
-
-                    const deoNameStr = row.deo_name ? `<span class="deo-name">DEO: ${row.deo_name}</span>` : '';
-
-                    let statusHtml = '';
-                    if (row.is_locked === 1) {
-                        statusHtml = `
-                        <div class="d-flex flex-column align-items-center gap-1">
-                            <span class="badge bg-danger">Locked</span>
-                            <button class="btn btn-outline-danger btn-unlock" onclick="unlockDistrict(${row.id}, '${row.district_name}')">Unlock</button>
-                        </div>
-                    `;
-                    } else {
-                        statusHtml = '<span class="badge bg-success">Open</span>';
-                    }
-
-                    rowsHtml += `
-                    <tr>
-                        <td class="fw-bold text-dark">${row.district_name}</td>
-                        <td class="amount-col">${formatNumber(totalDues)}</td>
-                        <td class="amount-col text-success">${formatNumber(tillDate)}</td>
-                        <td class="amount-col text-success">${formatNumber(afterDate)}</td>
-                        <td class="center-col fw-bold">${batteCount}</td>
-                        <td class="amount-col text-danger">${formatNumber(batteAmount)}</td>
-                        <td class="amount-col text-danger">${formatNumber(courtStayed)}</td>
-                        <td class="amount-col fw-bold text-primary">${formatNumber(targetRecovery)}</td>
-                        <td class="center-col">${statusHtml}</td>
-                        <td class="small">${updatedTime}${deoNameStr}</td>
-                    </tr>
-                `;
-                });
-
-                if ($.fn.DataTable.isDataTable('#bakayaTable')) {
-                    $('#bakayaTable').DataTable().destroy();
+                const count = await db.districts.count();
+                if (count > 0) {
+                    const dbData = await db.districts.orderBy('district_name').toArray();
+                    renderTable(dbData);
+                } else {
+                    await syncData(false);
                 }
-
-                tbody.innerHTML = rowsHtml;
-
-                $('#bakayaTable').DataTable({
-                    pageLength: 100,
-                    order: [[0, 'asc']],
-                    language: { search: "Filter records:" }
-                });
-
             } catch (err) {
                 console.error(err);
+                syncData(false); // fallback to network
             }
+        }
+
+        async function syncData(showToast = true) {
+            try {
+                if (showToast) Swal.showLoading();
+                
+                const res = await fetch(API_URL);
+                if (!res.ok) throw new Error("Failed to fetch");
+                const dbData = await res.json();
+                
+                await db.districts.clear();
+                await db.districts.bulkAdd(dbData);
+                
+                lastSyncDate = new Date().toISOString();
+                localStorage.setItem('admin_last_sync', lastSyncDate);
+                updateSyncUI();
+                
+                renderTable(dbData);
+                if (showToast) Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Data Synced Successfully', showConfirmButton: false, timer: 1500 });
+            } catch (err) {
+                if (showToast) Swal.fire('Error', 'Failed to sync data.', 'error');
+            }
+        }
+
+        function renderTable(dbData) {
+            const tbody = document.getElementById('tableBody');
+            let rowsHtml = '';
+
+            dbData.forEach(row => {
+                const totalDues = parseFloat(row.total_dues) || 0;
+                const tillDate = parseFloat(row.collected_till_date) || 0;
+                const afterDate = parseFloat(row.collected_after_date) || 0;
+                const batteCount = parseInt(row.batte_khatte_count) || 0;
+                const batteAmount = parseFloat(row.batte_khatte_amount) || 0;
+                const courtStayed = parseFloat(row.court_stayed_amount) || 0;
+
+                const duesLeft = totalDues - tillDate - afterDate;
+                const targetRecovery = Math.max(0, duesLeft - batteAmount - courtStayed);
+
+                const updatedTime = row.locked_at
+                    ? new Date(row.locked_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'short', timeStyle: 'short' })
+                    : '<span class="text-muted">Not Locked</span>';
+
+                const deoNameStr = row.deo_name ? `<span class="deo-name">DEO: ${row.deo_name}</span>` : '';
+
+                let statusHtml = '';
+                if (row.is_locked === 1) {
+                    statusHtml = `
+                    <div class="d-flex flex-column align-items-center gap-1">
+                        <span class="badge bg-danger">Locked</span>
+                        <button class="btn btn-outline-danger btn-unlock" onclick="unlockDistrict(${row.id}, '${row.district_name}')">Unlock</button>
+                    </div>
+                `;
+                } else {
+                    statusHtml = '<span class="badge bg-success">Open</span>';
+                }
+
+                rowsHtml += `
+                <tr>
+                    <td class="fw-bold text-dark">${row.district_name}</td>
+                    <td class="amount-col">${formatNumber(totalDues)}</td>
+                    <td class="amount-col text-success">${formatNumber(tillDate)}</td>
+                    <td class="amount-col text-success">${formatNumber(afterDate)}</td>
+                    <td class="center-col fw-bold">${batteCount}</td>
+                    <td class="amount-col text-danger">${formatNumber(batteAmount)}</td>
+                    <td class="amount-col text-danger">${formatNumber(courtStayed)}</td>
+                    <td class="amount-col fw-bold text-primary">${formatNumber(targetRecovery)}</td>
+                    <td class="center-col">${statusHtml}</td>
+                    <td class="small">${updatedTime}${deoNameStr}</td>
+                </tr>
+            `;
+            });
+
+            if ($.fn.DataTable.isDataTable('#bakayaTable')) {
+                $('#bakayaTable').DataTable().destroy();
+            }
+
+            tbody.innerHTML = rowsHtml;
+
+            $('#bakayaTable').DataTable({
+                pageLength: 100,
+                order: [[0, 'asc']],
+                language: { search: "Filter records:" }
+            });
         }
 
         async function unlockDistrict(id, districtName) {
@@ -249,7 +314,8 @@
 
                     if (res.ok) {
                         Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Unlocked Successfully', showConfirmButton: false, timer: 2000 });
-                        loadAdminData();
+                        // Also trigger a re-sync
+                        syncData(false);
                     } else {
                         Swal.fire('Error', 'Failed to unlock.', 'error');
                     }
@@ -257,6 +323,56 @@
                     Swal.fire('Error', 'Network error.', 'error');
                 }
             }
+        }
+
+        async function exportToExcel() {
+            const data = await db.districts.orderBy('district_name').toArray();
+            if (!data || data.length === 0) return Swal.fire('Info', 'No data to export. Please sync.', 'info');
+            
+            const exportData = data.map(row => {
+                const duesLeft = (row.total_dues || 0) - (row.collected_till_date || 0) - (row.collected_after_date || 0);
+                const target = Math.max(0, duesLeft - (row.batte_khatte_amount || 0) - (row.court_stayed_amount || 0));
+                
+                return {
+                    "District Name": row.district_name,
+                    "Total Dues": row.total_dues,
+                    "Collected Till 13-Nov-25": row.collected_till_date,
+                    "Collected After 13-Nov-25": row.collected_after_date,
+                    "Batte Khatte Count": row.batte_khatte_count,
+                    "Batte Khatte Amount": row.batte_khatte_amount,
+                    "Court Stayed Amount": row.court_stayed_amount,
+                    "Total Dues Left": duesLeft,
+                    "Net Recoverable Target": target,
+                    "Status": row.is_locked === 1 ? 'Locked' : 'Open',
+                    "DEO Name": row.deo_name || 'N/A',
+                    "Locked At": row.locked_at || 'N/A'
+                };
+            });
+            
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Excise_Bakaya");
+            XLSX.writeFile(wb, `Excise_Bakaya_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+
+        async function exportToSQL() {
+            const data = await db.districts.orderBy('district_name').toArray();
+            if (!data || data.length === 0) return Swal.fire('Info', 'No data to export. Please sync.', 'info');
+            
+            let sql = "-- Backup generated on " + new Date().toISOString() + "\n";
+            data.forEach(row => {
+                const lAt = row.locked_at ? `'${row.locked_at}'` : 'NULL';
+                const dName = row.deo_name ? `'${row.deo_name}'` : 'NULL';
+                sql += `UPDATE excise_dues SET collected_after_date = ${row.collected_after_date}, batte_khatte_count = ${row.batte_khatte_count}, batte_khatte_amount = ${row.batte_khatte_amount}, court_stayed_amount = ${row.court_stayed_amount}, is_locked = ${row.is_locked}, deo_name = ${dName}, locked_at = ${lAt} WHERE id = ${row.id};\n`;
+            });
+            
+            const blob = new Blob([sql], { type: "text/plain;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bakaya_backup_${new Date().toISOString().split('T')[0]}.sql`;
+            a.click();
+            URL.revokeObjectURL(url);
         }
 
         // Trigger Authentication on Load
