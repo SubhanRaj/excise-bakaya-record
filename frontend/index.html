@@ -98,7 +98,6 @@
     </div>
 
     <script>
-        // Live Cloudflare Worker URL
         const API_URL = "https://excise-bakaya-api.shubhanraj2002.workers.dev/";
 
         let dbData = [];
@@ -161,7 +160,6 @@
 
             const total = parseFloat(currentRecord.total_dues) || 0;
             const tillPac = parseFloat(currentRecord.collected_till_pac) || 0;
-
             const afterPac = parseFloat(els.afterPac.value) || 0;
             const batte = parseFloat(els.batteKhatte.value) || 0;
             const hc = parseFloat(els.hcStayed.value) || 0;
