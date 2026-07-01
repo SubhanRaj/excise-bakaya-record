@@ -1,36 +1,28 @@
 export default {
   async fetch(request, env) {
+    // 1. Setup CORS so your frontend can communicate with this API safely
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
     };
 
-    if (request.method === "OPTIONS")
+    // Handle CORS preflight requests
+    if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
+    }
 
     const url = new URL(request.url);
 
-    // --- NEW: Admin Authentication Route ---
+    // ---------------------------------------------------------
+    // ROUTE: /auth (Admin Authentication via Wrangler Secrets)
+    // ---------------------------------------------------------
     if (request.method === "POST" && url.pathname === "/auth") {
       try {
         const { pin } = await request.json();
 
-        // Hash the input using Web Crypto API
-        const encoder = new TextEncoder();
-        const data = encoder.encode(pin);
-        const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const hashHex = hashArray
-          .map((b) => b.toString(16).padStart(2, "0"))
-          .join("");
-
-        // SHA-256 Hash for "2026" (Change this hash to match your desired PIN)
-        // SHA-256 Hash for "2026"
-        const expectedHash =
-          "158a323a7ba44870f23d96f1516dd70aa48e9a72db4ebb026b0a89e212a208ab";
-
-        if (hashHex === expectedHash) {
+        // Securely compare the provided PIN against the encrypted Cloudflare Secret
+        if (pin === env.ADMIN_PIN) {
           return Response.json({ success: true }, { headers: corsHeaders });
         } else {
           return Response.json(
@@ -40,22 +32,26 @@ export default {
         }
       } catch (e) {
         return Response.json(
-          { error: "Auth Failed" },
+          { error: "Authentication Failed" },
           { status: 500, headers: corsHeaders },
         );
       }
     }
 
-    // --- Unlock Route ---
+    // ---------------------------------------------------------
+    // ROUTE: /unlock (Admin unlocks a district for re-entry)
+    // ---------------------------------------------------------
     if (request.method === "POST" && url.pathname === "/unlock") {
       try {
         const data = await request.json();
-        // Reset lock, DEO name, and time
+
+        // Reset the lock, clear the DEO name, and clear the locked timestamp
         await env.DB.prepare(
           `UPDATE excise_dues SET is_locked = 0, deo_name = NULL, locked_at = NULL WHERE id = ?`,
         )
           .bind(data.id)
           .run();
+
         return Response.json({ success: true }, { headers: corsHeaders });
       } catch (err) {
         return Response.json(
@@ -66,6 +62,9 @@ export default {
     }
 
     try {
+      // ---------------------------------------------------------
+      // ROUTE: GET / (Fetch all district data for forms and tables)
+      // ---------------------------------------------------------
       if (
         request.method === "GET" &&
         (url.pathname === "/" ||
@@ -78,6 +77,9 @@ export default {
         return Response.json(results, { headers: corsHeaders });
       }
 
+      // ---------------------------------------------------------
+      // ROUTE: POST / (DEO submits data and locks their district)
+      // ---------------------------------------------------------
       if (
         request.method === "POST" &&
         (url.pathname === "/" ||
@@ -86,11 +88,19 @@ export default {
       ) {
         const body = await request.json();
 
-        // Update records and lock the row, including the DEO name and current time
+        // Update the financial records, lock the row, and record the DEO's name & time
         const stmt = env.DB.prepare(
           `
           UPDATE excise_dues 
-          SET collected_after_date = ?, batte_khatte_count = ?, batte_khatte_amount = ?, court_stayed_amount = ?, deo_name = ?, is_locked = 1, locked_at = CURRENT_TIMESTAMP, last_updated = CURRENT_TIMESTAMP
+          SET 
+            collected_after_date = ?, 
+            batte_khatte_count = ?, 
+            batte_khatte_amount = ?, 
+            court_stayed_amount = ?, 
+            deo_name = ?, 
+            is_locked = 1, 
+            locked_at = CURRENT_TIMESTAMP, 
+            last_updated = CURRENT_TIMESTAMP
           WHERE id = ?
         `,
         ).bind(
@@ -109,8 +119,10 @@ export default {
         );
       }
 
+      // If no routes match
       return new Response("Not Found", { status: 404, headers: corsHeaders });
     } catch (e) {
+      // Global error handler for database/execution failures
       return Response.json(
         { error: e.message },
         { status: 500, headers: corsHeaders },
