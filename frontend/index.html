@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Excise Bakaya Tracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body {
             background-color: #f4f6f9;
@@ -28,11 +29,6 @@
             font-weight: bold;
             color: #0f5132;
         }
-
-        .currency-symbol::before {
-            content: "₹ ";
-            color: #6c757d;
-        }
     </style>
 </head>
 
@@ -48,6 +44,10 @@
                         <select id="districtSelect" class="form-select form-select-lg">
                             <option value="">-- Loading Districts --</option>
                         </select>
+                        <div class="text-muted small mt-2 fw-bold text-danger">
+                            * घोषणा: यह प्रमाणित किया जाता है कि उपर्युक्त भरा गया डेटा पूर्णतः सत्य, प्रामाणिक एवं
+                            विभागीय अभिलेखों के अनुसार है।
+                        </div>
                     </div>
 
                     <div id="lockMessage" class="alert alert-warning d-none text-center fw-bold">
@@ -58,14 +58,14 @@
                     <form id="duesForm" style="display: none;">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label">2. Total Dues</label>
+                                <label class="form-label">2. वसूल की जाने वाली सकल धनराशि</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₹</span>
                                     <input type="text" id="totalDues" class="form-control readonly-field" readonly>
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">3. Dues collected till date 13-November-2025</label>
+                                <label class="form-label">3. 13-November-2025 तक वसूल की गई धनराशि</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₹</span>
                                     <input type="text" id="tillPac" class="form-control readonly-field" readonly>
@@ -73,8 +73,8 @@
                             </div>
 
                             <div class="col-md-12 mt-4">
-                                <label class="form-label text-primary fw-bold">4. Dues collected after
-                                    13-November-2025</label>
+                                <label class="form-label text-primary fw-bold">4. 13-November-2025 के उपरांत वसूल की गई
+                                    धनराशि</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₹</span>
                                     <input type="text" id="afterPac" class="form-control border-primary format-inr"
@@ -83,7 +83,7 @@
                             </div>
 
                             <div class="col-md-12 mt-4">
-                                <label class="form-label">5. Total Dues Left</label>
+                                <label class="form-label">5. कुल बकाया धनराशि</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₹</span>
                                     <input type="text" id="duesLeft" class="form-control calculated-field" readonly>
@@ -107,25 +107,23 @@
                                             <input type="text" id="batteKhatteAmount"
                                                 class="form-control border-primary format-inr" required>
                                         </div>
-                                        <small id="batteError" class="text-danger d-none mt-1">Amount cannot exceed
-                                            Total Dues Left.</small>
                                     </div>
                                 </div>
                             </div>
 
                             <div class="col-md-12 mt-4">
-                                <label class="form-label text-primary fw-bold">7. Amount in any court stayed</label>
+                                <label class="form-label text-primary fw-bold">7. सक्षम न्यायालय द्वारा स्थगित प्रकरणों
+                                    में निहित धनराशि</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₹</span>
                                     <input type="text" id="courtStayed" class="form-control border-primary format-inr"
                                         required>
                                 </div>
-                                <small id="courtError" class="text-danger d-none">Cannot exceed (Total Dues Left - Batte
-                                    Khatte Amount).</small>
                             </div>
 
                             <div class="col-md-12 mt-4">
-                                <label class="form-label fw-bold text-success fs-5">8. Net recoverable amount</label>
+                                <label class="form-label fw-bold text-success fs-5">8. शुद्ध वसूल की जाने वाली
+                                    धनराशि</label>
                                 <div class="input-group input-group-lg">
                                     <span class="input-group-text bg-success text-white border-success">₹</span>
                                     <input type="text" id="finalRecovery"
@@ -134,9 +132,8 @@
                             </div>
                         </div>
 
-                        <button type="submit" id="submitBtn" class="btn btn-primary w-100 mt-5 btn-lg">Submit & Lock
-                            Records</button>
-                        <div id="statusMessage" class="mt-3 text-center fw-bold"></div>
+                        <button type="submit" id="submitBtn" class="btn btn-primary w-100 mt-5 btn-lg shadow-sm">Verify
+                            & Lock Record</button>
                     </form>
                 </div>
             </div>
@@ -144,17 +141,11 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cleave.js/1.6.0/cleave.min.js"></script>
-
     <script>
         const API_URL = "https://excise-bakaya-api.shubhanraj2002.workers.dev/";
-
         let dbData = [];
         let currentRecord = null;
-
-        // Indian Number Formatting Instance Setup
         const indianCurrencyFormatter = new Intl.NumberFormat('en-IN');
-
-        // Initialize Cleave.js formatters to variables so we can extract raw numbers easily
         let cleaveAfterPac = new Cleave('#afterPac', { numeral: true, numeralThousandsGroupStyle: 'lakh' });
         let cleaveBatte = new Cleave('#batteKhatteAmount', { numeral: true, numeralThousandsGroupStyle: 'lakh' });
         let cleaveCourt = new Cleave('#courtStayed', { numeral: true, numeralThousandsGroupStyle: 'lakh' });
@@ -168,17 +159,13 @@
             duesLeft: document.getElementById('duesLeft'),
             batteKhatteCount: document.getElementById('batteKhatteCount'),
             finalRecovery: document.getElementById('finalRecovery'),
-            btn: document.getElementById('submitBtn'),
-            status: document.getElementById('statusMessage'),
-            batteError: document.getElementById('batteError'),
-            courtError: document.getElementById('courtError')
+            btn: document.getElementById('submitBtn')
         };
 
         async function loadData() {
             try {
                 const res = await fetch(API_URL);
                 dbData = await res.json();
-
                 els.select.innerHTML = '<option value="">-- Select a District --</option>';
                 dbData.forEach(row => {
                     const opt = document.createElement('option');
@@ -187,7 +174,6 @@
                     els.select.appendChild(opt);
                 });
             } catch (err) {
-                els.select.innerHTML = '<option value="">Error Loading Data.</option>';
                 console.error(err);
             }
         }
@@ -196,16 +182,8 @@
             const id = parseInt(e.target.value);
             currentRecord = dbData.find(r => r.id === id);
 
-            els.status.innerHTML = "";
-
             if (currentRecord) {
-                // Sync local storage with the database state.
-                // If the database says the district is unlocked, actively remove the local lock.
-                if (currentRecord.is_locked === 0) {
-                    localStorage.removeItem(`locked_district_${id}`);
-                }
-
-                // Check DB Flag OR LocalStorage Flag for locking
+                if (currentRecord.is_locked === 0) { localStorage.removeItem(`locked_district_${id}`); }
                 const isLocalLocked = localStorage.getItem(`locked_district_${id}`);
 
                 if (currentRecord.is_locked === 1 || isLocalLocked === 'true') {
@@ -214,17 +192,12 @@
                 } else {
                     els.lockMsg.classList.add('d-none');
                     els.form.style.display = 'block';
-
-                    // Format read-only fields strictly for display
                     els.totalDues.value = indianCurrencyFormatter.format(currentRecord.total_dues);
                     els.tillPac.value = indianCurrencyFormatter.format(currentRecord.collected_till_date);
-
-                    // Reset editable fields
                     cleaveAfterPac.setRawValue('0');
                     els.batteKhatteCount.value = '0';
                     cleaveBatte.setRawValue('0');
                     cleaveCourt.setRawValue('0');
-
                     calculateMath();
                 }
             } else {
@@ -235,41 +208,19 @@
 
         function calculateMath() {
             if (!currentRecord) return;
-
             const total = parseFloat(currentRecord.total_dues) || 0;
             const tillPac = parseFloat(currentRecord.collected_till_date) || 0;
-
-            // Extract raw numbers from Cleave formatted inputs
             const afterPac = parseFloat(cleaveAfterPac.getRawValue()) || 0;
             const batteAmt = parseFloat(cleaveBatte.getRawValue()) || 0;
             const court = parseFloat(cleaveCourt.getRawValue()) || 0;
-
             const duesLeft = total - tillPac - afterPac;
+
             els.duesLeft.value = indianCurrencyFormatter.format(duesLeft);
+            els.finalRecovery.value = indianCurrencyFormatter.format(Math.max(0, duesLeft - batteAmt - court));
 
-            let isValid = true;
-
-            if (batteAmt > duesLeft) {
-                els.batteError.classList.remove('d-none');
-                isValid = false;
-            } else {
-                els.batteError.classList.add('d-none');
-            }
-
-            if (court > (duesLeft - batteAmt)) {
-                els.courtError.classList.remove('d-none');
-                isValid = false;
-            } else {
-                els.courtError.classList.add('d-none');
-            }
-
-            const recovery = Math.max(0, duesLeft - batteAmt - court);
-            els.finalRecovery.value = indianCurrencyFormatter.format(recovery);
-
-            els.btn.disabled = !isValid;
+            els.btn.disabled = (batteAmt > duesLeft) || (court > (duesLeft - batteAmt));
         }
 
-        // Attach listeners to Cleave elements
         document.getElementById('afterPac').addEventListener('input', calculateMath);
         document.getElementById('batteKhatteAmount').addEventListener('input', calculateMath);
         document.getElementById('courtStayed').addEventListener('input', calculateMath);
@@ -277,43 +228,56 @@
         els.form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            els.btn.disabled = true;
-            els.btn.textContent = "Saving & Locking...";
-
-            const payload = {
-                id: currentRecord.id,
-                collected_after_date: parseFloat(cleaveAfterPac.getRawValue()) || 0,
-                batte_khatte_count: parseInt(els.batteKhatteCount.value) || 0,
-                batte_khatte_amount: parseFloat(cleaveBatte.getRawValue()) || 0,
-                court_stayed_amount: parseFloat(cleaveCourt.getRawValue()) || 0
-            };
-
-            try {
-                const res = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (res.ok) {
-                    // Lock in local storage
-                    localStorage.setItem(`locked_district_${currentRecord.id}`, 'true');
-
-                    els.form.style.display = 'none';
-                    els.lockMsg.classList.remove('d-none');
-                    els.lockMsg.innerHTML = "Records successfully submitted and locked. Thank you.";
-
-                    // Update internal state to match DB
-                    currentRecord.is_locked = 1;
-                } else {
-                    els.status.innerHTML = '<span class="text-danger">Failed to save records.</span>';
-                    els.btn.disabled = false;
-                    els.btn.textContent = "Submit & Lock Records";
+            const { value: deoName } = await Swal.fire({
+                title: 'Verify & Lock Record',
+                text: 'लॉक करने से पूर्व कृपया जिला आबकारी अधिकारी का नाम दर्ज करें:',
+                input: 'text',
+                inputPlaceholder: 'अधिकारी का नाम',
+                showCancelButton: true,
+                confirmButtonColor: '#0d6efd',
+                confirmButtonText: 'Lock Record',
+                inputValidator: (value) => {
+                    if (!value) return 'अधिकारी का नाम अनिवार्य है!';
                 }
-            } catch (err) {
-                els.status.innerHTML = '<span class="text-danger">Network Error.</span>';
-                els.btn.disabled = false;
-                els.btn.textContent = "Submit & Lock Records";
+            });
+
+            if (deoName) {
+                els.btn.disabled = true;
+                els.btn.textContent = "Processing...";
+
+                const payload = {
+                    id: currentRecord.id,
+                    deo_name: deoName,
+                    collected_after_date: parseFloat(cleaveAfterPac.getRawValue()) || 0,
+                    batte_khatte_count: parseInt(els.batteKhatteCount.value) || 0,
+                    batte_khatte_amount: parseFloat(cleaveBatte.getRawValue()) || 0,
+                    court_stayed_amount: parseFloat(cleaveCourt.getRawValue()) || 0
+                };
+
+                try {
+                    const res = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (res.ok) {
+                        localStorage.setItem(`locked_district_${currentRecord.id}`, 'true');
+                        currentRecord.is_locked = 1;
+                        Swal.fire('Locked!', 'रिकॉर्ड सफलतापूर्वक सुरक्षित कर दिया गया है।', 'success').then(() => {
+                            els.form.style.display = 'none';
+                            els.lockMsg.classList.remove('d-none');
+                        });
+                    } else {
+                        Swal.fire('Error', 'Failed to save records.', 'error');
+                        els.btn.disabled = false;
+                        els.btn.textContent = "Verify & Lock Record";
+                    }
+                } catch (err) {
+                    Swal.fire('Error', 'Network Error.', 'error');
+                    els.btn.disabled = false;
+                    els.btn.textContent = "Verify & Lock Record";
+                }
             }
         });
 
