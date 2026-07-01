@@ -33,6 +33,10 @@
             font-family: monospace;
             font-size: 1.05em;
         }
+
+        .center-col {
+            text-align: center;
+        }
     </style>
 </head>
 
@@ -51,11 +55,13 @@
                         <tr>
                             <th>District</th>
                             <th>Total Dues</th>
-                            <th>Collected (Till PAC)</th>
-                            <th>Collected (After PAC)</th>
-                            <th>Batte Khatte</th>
-                            <th>HC Stayed</th>
+                            <th>Collected (Till 13-Nov-25)</th>
+                            <th>Collected (After 13-Nov-25)</th>
+                            <th class="center-col">Batte Khatte (Count)</th>
+                            <th>Batte Khatte (Amount)</th>
+                            <th>Court Stayed</th>
                             <th class="text-warning">Target Recovery</th>
+                            <th class="center-col">Status</th>
                             <th>Last Updated</th>
                         </tr>
                     </thead>
@@ -77,7 +83,7 @@
     <script>
         const API_URL = "https://excise-bakaya-api.shubhanraj2002.workers.dev/api/dues";
 
-        // Utility to format numbers safely (Indian numbering system format if you prefer, or standard)
+        // Utility to format numbers into the Indian numbering system
         function formatNumber(num) {
             if (!num) return "0";
             return Number(num).toLocaleString('en-IN');
@@ -92,31 +98,39 @@
                 let rowsHtml = '';
 
                 dbData.forEach(row => {
-                    // Safely parse numbers
+                    // Safely parse numbers mapping to the new schema
                     const totalDues = parseFloat(row.total_dues) || 0;
-                    const tillPac = parseFloat(row.collected_till_pac) || 0;
-                    const afterPac = parseFloat(row.collected_after_pac) || 0;
-                    const batte = parseFloat(row.batte_khatte) || 0;
-                    const hc = parseFloat(row.hc_stayed) || 0;
+                    const tillDate = parseFloat(row.collected_till_date) || 0;
+                    const afterDate = parseFloat(row.collected_after_date) || 0;
+                    const batteCount = parseInt(row.batte_khatte_count) || 0;
+                    const batteAmount = parseFloat(row.batte_khatte_amount) || 0;
+                    const courtStayed = parseFloat(row.court_stayed_amount) || 0;
 
                     // Re-calculate the logic on the fly for the admin view
-                    const duesLeft = totalDues - tillPac - afterPac;
-                    const targetRecovery = Math.max(0, duesLeft - batte - hc);
+                    const duesLeft = totalDues - tillDate - afterDate;
+                    const targetRecovery = Math.max(0, duesLeft - batteAmount - courtStayed);
 
                     // Format the timestamp
                     const updatedTime = row.last_updated
                         ? new Date(row.last_updated).toLocaleString('en-IN')
                         : 'Never';
 
+                    // Generate Lock Status Badge
+                    const statusBadge = row.is_locked === 1
+                        ? '<span class="badge bg-danger">Locked</span>'
+                        : '<span class="badge bg-success">Open</span>';
+
                     rowsHtml += `
                     <tr>
                         <td class="fw-bold">${row.district_name}</td>
                         <td class="amount-col">${formatNumber(totalDues)}</td>
-                        <td class="amount-col text-success">${formatNumber(tillPac)}</td>
-                        <td class="amount-col text-success">${formatNumber(afterPac)}</td>
-                        <td class="amount-col text-danger">${formatNumber(batte)}</td>
-                        <td class="amount-col text-danger">${formatNumber(hc)}</td>
+                        <td class="amount-col text-success">${formatNumber(tillDate)}</td>
+                        <td class="amount-col text-success">${formatNumber(afterDate)}</td>
+                        <td class="center-col fw-bold">${batteCount}</td>
+                        <td class="amount-col text-danger">${formatNumber(batteAmount)}</td>
+                        <td class="amount-col text-danger">${formatNumber(courtStayed)}</td>
                         <td class="amount-col fw-bold text-primary">${formatNumber(targetRecovery)}</td>
+                        <td class="center-col">${statusBadge}</td>
                         <td class="small text-muted">${updatedTime}</td>
                     </tr>
                 `;
@@ -126,8 +140,8 @@
 
                 // Initialize DataTables after the HTML is injected
                 $('#bakayaTable').DataTable({
-                    pageLength: 25, // Default rows per page
-                    order: [[0, 'asc']], // Default sort by District Name alphabetically
+                    pageLength: 25,
+                    order: [[0, 'asc']], // Default sort by District Name
                     language: {
                         search: "Filter records:"
                     }
@@ -135,7 +149,7 @@
 
             } catch (err) {
                 console.error("Error fetching data:", err);
-                document.getElementById('tableBody').innerHTML = `<tr><td colspan="8" class="text-center text-danger">Failed to load data. Check API connection.</td></tr>`;
+                document.getElementById('tableBody').innerHTML = `<tr><td colspan="10" class="text-center text-danger">Failed to load data. Check API connection.</td></tr>`;
             }
         }
 
