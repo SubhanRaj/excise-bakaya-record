@@ -48,6 +48,9 @@ The `excise_dues` table tracks financial records for the districts:
 *   **Premium Grid UI**: DataTables grid displaying all districts with advanced typography (Inter/Segoe UI), soft shadow hover animations, and a styled sticky header. All financial columns are prepended with the Indian Rupee symbol (₹). Includes an "Unlock" feature to reset the `is_locked` status for specific DEOs. Note: The "Data Entry" navigation button is removed to maintain a strict admin-only focus.
 
 ## API Endpoints (`worker.js`)
+
+**Security**: All endpoints (except CORS preflight) strictly require an `X-API-Secret` header matching the `API_SECRET` Wrangler environment variable to prevent unauthenticated access or bot scraping.
+
 *   `GET /`: Returns all district records.
 *   `POST /`: Updates financial columns, locks the record, and logs timestamps/DEO name.
 *   `POST /auth`: Authenticates the Admin page PIN.

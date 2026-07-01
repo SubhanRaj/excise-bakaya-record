@@ -18,4 +18,4 @@ You are an expert full-stack developer specializing in serverless architectures,
     *   Calculate derived values strictly in JS before submission. Use SweetAlert2 for all modals/alerts. Ensure strict Indian Numeral INR formatting via Cleave.js.
     *   **NO EMOJIS ALLOWED**: Never use emojis in any UI elements or portal pages. Always use Tabler Icons via SVG/Webfont.
     *   Prefix all financial amounts with the Indian Rupee symbol (₹).
-*   **Worker**: Handle all requests securely, validate inputs before interacting with D1, and return consistent JSON responses with appropriate HTTP status codes.
+*   **Worker**: Handle all requests securely, validate inputs before interacting with D1, and return consistent JSON responses with appropriate HTTP status codes. All requests must validate the global `X-API-Secret` header against the `API_SECRET` wrangler secret to prevent unauthorized access.
