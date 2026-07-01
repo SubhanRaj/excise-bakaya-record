@@ -9,7 +9,7 @@
     <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
     <style>
         body {
@@ -363,11 +363,45 @@
                     "Net Recoverable Target": target,
                     "Status": row.is_locked === 1 ? 'Locked' : 'Open',
                     "DEO Name": row.deo_name || 'N/A',
-                    "Locked At": row.locked_at || 'N/A'
+                    "Locked At": row.locked_at ? new Date(row.locked_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A'
                 };
             });
             
             const ws = XLSX.utils.json_to_sheet(exportData);
+            
+            ws['!cols'] = [
+                { wch: 20 }, { wch: 22 }, { wch: 24 }, { wch: 26 }, 
+                { wch: 20 }, { wch: 22 }, { wch: 26 }, { wch: 20 }, 
+                { wch: 24 }, { wch: 12 }, { wch: 25 }, { wch: 22 }
+            ];
+
+            ws['!views'] = [{ state: 'frozen', xSplit: 0, ySplit: 1 }];
+
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            for (let R = range.s.r; R <= range.e.r; ++R) {
+                for (let C = range.s.c; C <= range.e.c; ++C) {
+                    const cellRef = XLSX.utils.encode_cell({c: C, r: R});
+                    if (!ws[cellRef]) continue;
+
+                    if (R === 0) {
+                        ws[cellRef].s = {
+                            font: { bold: true, color: { rgb: "FFFFFF" } },
+                            fill: { fgColor: { rgb: "2C3E50" } },
+                            alignment: { horizontal: "center", vertical: "center", wrapText: true }
+                        };
+                    } else {
+                        ws[cellRef].s = { alignment: { vertical: "center" } };
+                        const amountCols = [1, 2, 3, 5, 6, 7, 8];
+                        if (amountCols.includes(C)) {
+                            ws[cellRef].z = '"₹"#,##0.00';
+                            ws[cellRef].s.alignment.horizontal = "right";
+                        } else if (C === 4 || C === 9) {
+                            ws[cellRef].s.alignment.horizontal = "center";
+                        }
+                    }
+                }
+            }
+
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Excise_Bakaya");
             XLSX.writeFile(wb, `Excise_Bakaya_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
