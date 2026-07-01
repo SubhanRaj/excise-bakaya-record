@@ -6,4 +6,4 @@ compatibility_date = "2024-03-20"
 [[d1_databases]]
 binding = "DB"
 database_name = "excise-bakaya-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "667be1f3-7612-45c6-91e9-0a40a451c6ea"
