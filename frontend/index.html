@@ -29,10 +29,16 @@
             font-weight: bold;
             color: #0f5132;
         }
+
+        body.blur-body > .container {
+            filter: blur(8px);
+            pointer-events: none;
+            user-select: none;
+        }
     </style>
 </head>
 
-<body>
+<body class="blur-body">
     <div class="container mb-5">
         <div class="row justify-content-center">
             <div class="col-lg-8">
@@ -281,7 +287,69 @@
             }
         });
 
-        loadData();
+        async function enforceCugLogin() {
+            const savedDistrictId = localStorage.getItem('cug_verified_district_id');
+            if (savedDistrictId) {
+                document.body.classList.remove('blur-body');
+                els.select.value = savedDistrictId;
+                els.select.disabled = true;
+                els.select.dispatchEvent(new Event('change'));
+                return;
+            }
+
+            const { value: cugNumber } = await Swal.fire({
+                title: 'DEO Login Verification',
+                text: 'कृपया अपना 10-अंकीय CUG मोबाइल नंबर दर्ज करें:',
+                input: 'text',
+                inputPlaceholder: '10-digit CUG Number',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                confirmButtonColor: '#0d6efd',
+                confirmButtonText: 'Verify',
+                inputValidator: (value) => {
+                    if (!value || value.length !== 10 || isNaN(value)) {
+                        return 'कृपया सही 10-अंकीय नंबर दर्ज करें!';
+                    }
+                }
+            });
+
+            if (cugNumber) {
+                try {
+                    Swal.showLoading();
+                    const res = await fetch(API_URL + 'verify-deo', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ cug: cugNumber })
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if (res.ok && data.success) {
+                        localStorage.setItem('cug_verified_district_id', data.district_id);
+                        document.body.classList.remove('blur-body');
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Verified',
+                            text: `Welcome, ${data.district_name} DEO.`,
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                        
+                        els.select.value = data.district_id;
+                        els.select.disabled = true;
+                        els.select.dispatchEvent(new Event('change'));
+                    } else {
+                        await Swal.fire('Error', data.error || 'Invalid CUG Number.', 'error');
+                        enforceCugLogin(); // Prompt again
+                    }
+                } catch (err) {
+                    await Swal.fire('Error', 'Network Error. Please try again.', 'error');
+                    enforceCugLogin();
+                }
+            }
+        }
+
+        loadData().then(() => enforceCugLogin());
     </script>
 </body>
 

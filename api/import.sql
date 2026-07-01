@@ -8,7 +8,7 @@ INSERT INTO excise_dues (district_name, total_dues, collected_till_date) VALUES
 ('Amethi', 2830219.04, 500170.0),
 ('Ayodhya', 3025397.87, 37646.0),
 ('Azamgarh', 10453367.56, 792114.0),
-('baghpat', 3769367.46, 506235.4),
+('Baghpat', 3769367.46, 506235.4),
 ('Bahraich', 2899029.35, 502799.0),
 ('Ballia', 8648912.18, 919916.0),
 ('Balrampur', 85883.0, 0.0),

@@ -61,6 +61,38 @@ export default {
       }
     }
 
+    // ---------------------------------------------------------
+    // ROUTE: /verify-deo (CUG authentication)
+    // ---------------------------------------------------------
+    if (request.method === "POST" && url.pathname === "/verify-deo") {
+      try {
+        const { cug } = await request.json();
+        if (!cug || cug.length !== 10) {
+          return Response.json({ success: false, error: "Invalid CUG number" }, { status: 400, headers: corsHeaders });
+        }
+
+        // Hash the CUG using Web Crypto API
+        const encoder = new TextEncoder();
+        const dataBuffer = encoder.encode(cug);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+        // Verify against database
+        const result = await env.DB.prepare(
+          "SELECT id, district_name FROM excise_dues WHERE cug_hash = ?"
+        ).bind(hashHex).first();
+
+        if (result) {
+          return Response.json({ success: true, district_id: result.id, district_name: result.district_name }, { headers: corsHeaders });
+        } else {
+          return Response.json({ success: false, error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+        }
+      } catch (err) {
+        return Response.json({ error: "Verification Failed" }, { status: 500, headers: corsHeaders });
+      }
+    }
+
     try {
       // ---------------------------------------------------------
       // ROUTE: GET / (Fetch all district data for forms and tables)
