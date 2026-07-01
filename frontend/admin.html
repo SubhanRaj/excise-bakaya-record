@@ -10,6 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
     <style>
         body {
             background-color: #f4f6f9;
@@ -91,9 +92,9 @@
                 <h3 class="text-primary m-0 fw-bold">Admin View: District-wise Excise Bakaya</h3>
                 <div class="d-flex align-items-center gap-2">
                     <span id="lastSyncTime" class="text-muted small fw-bold me-2"></span>
-                    <button id="btnSync" class="btn btn-outline-secondary btn-sm fw-bold shadow-sm" onclick="syncData()">🔄 Sync</button>
-                    <button id="btnExportExcel" class="btn btn-outline-success btn-sm fw-bold shadow-sm" onclick="exportToExcel()">📊 Excel</button>
-                    <button id="btnExportSQL" class="btn btn-outline-info btn-sm fw-bold shadow-sm" onclick="exportToSQL()">💾 SQL</button>
+                    <button id="btnSync" class="btn btn-outline-secondary btn-sm fw-bold shadow-sm" onclick="syncData()"><i class="ti ti-refresh"></i> Sync</button>
+                    <button id="btnExportExcel" class="btn btn-outline-success btn-sm fw-bold shadow-sm" onclick="exportToExcel()"><i class="ti ti-file-spreadsheet"></i> Excel</button>
+                    <button id="btnExportSQL" class="btn btn-outline-info btn-sm fw-bold shadow-sm" onclick="exportToSQL()"><i class="ti ti-database-export"></i> SQL</button>
                     <a href="index.html" class="btn btn-outline-primary btn-sm fw-bold shadow-sm">Data Entry</a>
                     <button id="btnLogout" class="btn btn-outline-danger btn-sm fw-bold shadow-sm" onclick="logoutAdmin()">Logout</button>
                 </div>
