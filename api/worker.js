@@ -12,6 +12,7 @@ export default {
     const url = new URL(request.url);
 
     try {
+      // 1. GET DATA
       if (
         request.method === "GET" &&
         (url.pathname === "/" ||
@@ -24,6 +25,7 @@ export default {
         return Response.json(results, { headers: corsHeaders });
       }
 
+      // 2. UPDATE & LOCK DATA
       if (
         request.method === "POST" &&
         (url.pathname === "/" ||
@@ -50,6 +52,21 @@ export default {
         await stmt.run();
         return Response.json(
           { success: true, message: "Record updated and locked." },
+          { headers: corsHeaders },
+        );
+      }
+
+      // 3. ADMIN UNLOCK ROUTE
+      if (request.method === "POST" && url.pathname === "/unlock") {
+        const body = await request.json();
+
+        const stmt = env.DB.prepare(
+          `UPDATE excise_dues SET is_locked = 0 WHERE id = ?`,
+        ).bind(body.id);
+
+        await stmt.run();
+        return Response.json(
+          { success: true, message: "District successfully unlocked." },
           { headers: corsHeaders },
         );
       }

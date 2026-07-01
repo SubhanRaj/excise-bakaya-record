@@ -199,6 +199,12 @@
             els.status.innerHTML = "";
 
             if (currentRecord) {
+                // Sync local storage with the database state.
+                // If the database says the district is unlocked, actively remove the local lock.
+                if (currentRecord.is_locked === 0) {
+                    localStorage.removeItem(`locked_district_${id}`);
+                }
+
                 // Check DB Flag OR LocalStorage Flag for locking
                 const isLocalLocked = localStorage.getItem(`locked_district_${id}`);
 

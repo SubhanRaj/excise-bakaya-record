@@ -19,23 +19,64 @@
         }
 
         .card {
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
         }
 
+        /* Sticky Header CSS */
         .table-responsive {
-            margin-top: 20px;
+            max-height: 70vh;
+            /* Keeps the table within viewable screen */
+            overflow-y: auto;
+            border-radius: 8px;
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.05);
         }
 
+        #bakayaTable {
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 0;
+        }
+
+        #bakayaTable thead th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background-color: #212529;
+            /* Matches table-dark */
+            color: #ffffff;
+            border-bottom: 2px solid #495057;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Column alignments */
         .amount-col {
             text-align: right;
-            font-family: monospace;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: 600;
             font-size: 1.05em;
         }
 
         .center-col {
             text-align: center;
+        }
+
+        /* Beautification */
+        tbody tr:hover {
+            background-color: #f8f9fa !important;
+            transition: background-color 0.2s ease;
+        }
+
+        .badge {
+            font-size: 0.85em;
+            padding: 0.4em 0.6em;
+        }
+
+        .btn-unlock {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 4px;
         }
     </style>
 </head>
@@ -44,13 +85,13 @@
 
     <div class="container-fluid px-4">
         <div class="card p-4">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h3 class="text-primary m-0">Admin View: District-wise Excise Bakaya</h3>
-                <a href="index.html" class="btn btn-outline-secondary">Go to Data Entry</a>
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+                <h3 class="text-primary m-0 fw-bold">Admin View: District-wise Excise Bakaya</h3>
+                <a href="index.html" class="btn btn-outline-primary fw-bold shadow-sm">Go to Data Entry</a>
             </div>
 
             <div class="table-responsive">
-                <table id="bakayaTable" class="table table-striped table-hover table-bordered w-100">
+                <table id="bakayaTable" class="table table-striped table-hover table-bordered w-100 align-middle">
                     <thead class="table-dark">
                         <tr>
                             <th>District</th>
@@ -83,7 +124,6 @@
     <script>
         const API_URL = "https://excise-bakaya-api.shubhanraj2002.workers.dev/";
 
-        // Utility to format numbers into the Indian numbering system
         function formatNumber(num) {
             if (!num) return "0";
             return Number(num).toLocaleString('en-IN');
@@ -98,7 +138,6 @@
                 let rowsHtml = '';
 
                 dbData.forEach(row => {
-                    // Safely parse numbers mapping to the new schema
                     const totalDues = parseFloat(row.total_dues) || 0;
                     const tillDate = parseFloat(row.collected_till_date) || 0;
                     const afterDate = parseFloat(row.collected_after_date) || 0;
@@ -106,23 +145,29 @@
                     const batteAmount = parseFloat(row.batte_khatte_amount) || 0;
                     const courtStayed = parseFloat(row.court_stayed_amount) || 0;
 
-                    // Re-calculate the logic on the fly for the admin view
                     const duesLeft = totalDues - tillDate - afterDate;
                     const targetRecovery = Math.max(0, duesLeft - batteAmount - courtStayed);
 
-                    // Format the timestamp
                     const updatedTime = row.last_updated
-                        ? new Date(row.last_updated).toLocaleString('en-IN')
-                        : 'Never';
+                        ? new Date(row.last_updated).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+                        : '<span class="text-muted">Never</span>';
 
-                    // Generate Lock Status Badge
-                    const statusBadge = row.is_locked === 1
-                        ? '<span class="badge bg-danger">Locked</span>'
-                        : '<span class="badge bg-success">Open</span>';
+                    // Generate Status Badge + Unlock Button if locked
+                    let statusHtml = '';
+                    if (row.is_locked === 1) {
+                        statusHtml = `
+                        <div class="d-flex flex-column align-items-center gap-1">
+                            <span class="badge bg-danger">Locked</span>
+                            <button class="btn btn-outline-danger btn-unlock" onclick="unlockDistrict(${row.id}, '${row.district_name}')">Unlock</button>
+                        </div>
+                    `;
+                    } else {
+                        statusHtml = '<span class="badge bg-success">Open</span>';
+                    }
 
                     rowsHtml += `
                     <tr>
-                        <td class="fw-bold">${row.district_name}</td>
+                        <td class="fw-bold text-dark">${row.district_name}</td>
                         <td class="amount-col">${formatNumber(totalDues)}</td>
                         <td class="amount-col text-success">${formatNumber(tillDate)}</td>
                         <td class="amount-col text-success">${formatNumber(afterDate)}</td>
@@ -130,30 +175,54 @@
                         <td class="amount-col text-danger">${formatNumber(batteAmount)}</td>
                         <td class="amount-col text-danger">${formatNumber(courtStayed)}</td>
                         <td class="amount-col fw-bold text-primary">${formatNumber(targetRecovery)}</td>
-                        <td class="center-col">${statusBadge}</td>
+                        <td class="center-col">${statusHtml}</td>
                         <td class="small text-muted">${updatedTime}</td>
                     </tr>
                 `;
                 });
 
+                // Destroy existing DataTable instance before re-injecting HTML (useful for reloading)
+                if ($.fn.DataTable.isDataTable('#bakayaTable')) {
+                    $('#bakayaTable').DataTable().destroy();
+                }
+
                 tbody.innerHTML = rowsHtml;
 
-                // Initialize DataTables after the HTML is injected
                 $('#bakayaTable').DataTable({
-                    pageLength: 25,
-                    order: [[0, 'asc']], // Default sort by District Name
-                    language: {
-                        search: "Filter records:"
-                    }
+                    pageLength: 100, // Increased default view based on your screenshot
+                    order: [[0, 'asc']],
+                    language: { search: "Filter records:" }
                 });
 
             } catch (err) {
                 console.error("Error fetching data:", err);
-                document.getElementById('tableBody').innerHTML = `<tr><td colspan="10" class="text-center text-danger">Failed to load data. Check API connection.</td></tr>`;
+                document.getElementById('tableBody').innerHTML = `<tr><td colspan="10" class="text-center text-danger fw-bold py-4">Failed to load data. Check API connection.</td></tr>`;
             }
         }
 
-        // Load data on page ready
+        // Unlock logic
+        async function unlockDistrict(id, districtName) {
+            if (!confirm(`Are you sure you want to unlock data entry for ${districtName}?`)) return;
+
+            try {
+                const res = await fetch(API_URL + "unlock", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id })
+                });
+
+                if (res.ok) {
+                    // Reload the table data to instantly show the "Open" badge
+                    loadAdminData();
+                } else {
+                    alert("Failed to unlock the district. Check API logs.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Network error while trying to unlock.");
+            }
+        }
+
         $(document).ready(function () {
             loadAdminData();
         });
