@@ -291,7 +291,7 @@
                 const targetRecovery = Math.max(0, duesLeft - batteAmount - courtStayed);
 
                 const updatedTime = row.locked_at
-                    ? new Date(row.locked_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'short', timeStyle: 'short' })
+                    ? new Date(row.locked_at.replace(' ', 'T') + 'Z').toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'short', timeStyle: 'short' })
                     : '<span class="text-muted">Not Locked</span>';
 
                 const deoNameStr = row.deo_name ? `<span class="deo-name">DEO: ${row.deo_name}</span>` : '';
@@ -402,7 +402,7 @@
                     "Net Recoverable Target": target,
                     "Status": row.is_locked === 1 ? 'Locked' : 'Open',
                     "DEO Name": row.deo_name || 'N/A',
-                    "Locked At": row.locked_at ? new Date(row.locked_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A'
+                    "Locked At": row.locked_at ? new Date(row.locked_at.replace(' ', 'T') + 'Z').toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A'
                 };
             });
             
