@@ -150,7 +150,7 @@
                     </thead>
                     <tbody id="tableBody">
                     </tbody>
-                    <tfoot id="tableFoot" class="table-group-divider bg-light fw-bold text-dark">
+                    <tfoot id="tableFoot" class="table-group-divider bg-light fw-bold text-dark position-sticky bottom-0" style="z-index: 1; box-shadow: 0 -2px 10px rgba(0,0,0,0.1);">
                     </tfoot>
                 </table>
             </div>
@@ -487,6 +487,19 @@
                             fill: { fgColor: { rgb: "2C3E50" } },
                             alignment: { horizontal: "center", vertical: "center", wrapText: true }
                         };
+                    } else if (R === range.e.r) {
+                        ws[cellRef].s = { 
+                            font: { bold: true, color: { rgb: "155724" } }, 
+                            fill: { fgColor: { rgb: "D4EDDA" } }, // Beautiful subtle green
+                            alignment: { vertical: "center" } 
+                        };
+                        const amountCols = [1, 2, 3, 5, 6, 7, 8];
+                        if (amountCols.includes(C)) {
+                            ws[cellRef].z = '"₹"#,##0.00';
+                            ws[cellRef].s.alignment.horizontal = "right";
+                        } else if (C === 4 || C === 9) {
+                            ws[cellRef].s.alignment.horizontal = "center";
+                        }
                     } else if (R > 2) {
                         ws[cellRef].s = { alignment: { vertical: "center" } };
                         const amountCols = [1, 2, 3, 5, 6, 7, 8];
