@@ -2,15 +2,30 @@
 
 A production-grade internal portal built for the Department of Excise, Government of Uttar Pradesh to track and manage dues ("Bakaya") across 59 districts.
 
-## Architecture & Stack
+## Tech Stack & Libraries
 
-This is a monorepo utilizing a serverless architecture on the Cloudflare ecosystem.
+This is a monorepo utilizing a serverless architecture, carefully designed to operate with zero traditional server maintenance while delivering a high-performance experience.
 
-*   **Frontend**: Deployed to Cloudflare Pages. Built with vanilla JavaScript, HTML, CSS, Bootstrap 5, SweetAlert2 (for modals/alerts), Cleave.js (for INR formatting), DataTables, Dexie.js (for caching), SheetJS (for Excel exports), and Tabler Icons (for UI iconography).
-    *   `index.html`: The Data Entry Operator (DEO) Portal.
-    *   `admin.html`: The Commissioner/Admin Dashboard.
-*   **Backend (API)**: Deployed to Cloudflare Workers (`worker.js`).
-*   **Database**: Cloudflare D1 (SQLite).
+### Frontend (Client-Side)
+Deployed statically via **Cloudflare Pages**. No build steps (like Webpack/Vite) were used to maintain extreme simplicity and fast execution.
+*   **Vanilla HTML5 / CSS3 / JavaScript**: The core foundation.
+*   **Bootstrap 5 (CDN)**: Provides the responsive grid layout, card structures, and base styling.
+*   **SweetAlert2**: Replaces all native browser prompts with beautiful, non-dismissible custom modals used for CUG Authentication, Admin PIN verification, and form locking signatures.
+*   **Cleave.js**: Handles real-time input formatting as the user types, specifically configured for the Indian Numeral System (Lakhs/Crores) to enforce accurate financial data entry.
+*   **DataTables & jQuery**: Powers the Admin Dashboard's grid UI, enabling instant searching, sorting, pagination, and sticky headers/footers for large datasets.
+*   **Dexie.js**: A minimalistic wrapper for IndexedDB, utilized exclusively on the Admin Dashboard to cache all 59 districts offline, ensuring instant page loads upon revisiting.
+*   **SheetJS (xlsx)**: An advanced spreadsheet library used to natively generate `.xlsx` backup files in the browser, complete with custom cell colors, frozen rows, and dynamic currency formatting.
+*   **Tabler Icons**: Lightweight SVG webfont used for clear UI iconography (Export, Sync, Logout).
+
+### Backend (API)
+Deployed to the edge via **Cloudflare Workers**. 
+*   **Cloudflare Workers**: The serverless execution environment routing all API traffic (`worker.js`).
+*   **Cloudflare D1**: A serverless, globally distributed SQLite database engine (`schema.sql`).
+*   **Web Crypto API (`crypto.subtle`)**: A native edge-compatible cryptography API utilized to perform SHA-256 hashing of the CUG mobile numbers without needing heavy external Node.js dependencies.
+*   **Wrangler**: Cloudflare's CLI tool used for local database execution, secret management, and deployments.
+
+### Data Processing Utilities
+*   **Python 3**: Used for offline data mapping (`map_cug.py`). Utilizes standard libraries (`csv`, `hashlib`, `json`) to translate Hindi district names to English and pre-hash CUG numbers into `update_cug.sql` scripts.
 
 ## Database Schema & Data Fields
 
