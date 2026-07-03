@@ -47,11 +47,19 @@ The `excise_dues` table tracks financial records for the districts. The system c
 *   **Authentication**: Secure PIN-protected access verified against the Cloudflare secret `env.ADMIN_PIN`. It uses `sessionStorage` to persist login during the active browser session, featuring a secure Logout button (Tabler icon).
 *   **Offline Caching for Performance**: The dashboard utilizes IndexedDB (via Dexie.js) to instantly load the 59 districts upon revisit. This drastically reduces read queries on the Cloudflare D1 database and provides an instant load experience.
 *   **Manual Sync**: A manual "Sync" button fetches fresh, bypassing the Dexie cache, paired with a dynamic "Last Sync" timestamp.
-*   **Data Export**: 
-    *   **Excel (.xlsx)**: Utilizes SheetJS to generate heavily formatted Excel reports natively on the client device.
-    *   **SQL Backup (.sql)**: Generates a raw `.sql` file with `UPDATE` statements for the entire dataset.
+*   **Data Export & Reporting**:
+    *   **Excel (.xlsx) Generation**: Utilizes SheetJS to generate highly formatted Excel reports natively on the client device. 
+        *   **Auto-Sync**: Triggering an Excel export automatically initiates a silent background sync with the Cloudflare D1 database (`syncData(false)`), ensuring the downloaded report always contains the absolute most up-to-date information, bypassing the local Dexie cache.
+        *   **Advanced Formatting**: The generated Excel file features a custom header with the exact Date and Time of generation (e.g., "Excise Bakaya District Wise Summary as on 13-Nov-2025, 14:30 PM").
+        *   **Row & Column Freezing**: The top 3 header rows and the first column (District Name) are frozen (`!views: { state: 'frozen', xSplit: 0, ySplit: 3 }`), allowing administrators to scroll through large datasets while keeping context visible.
+        *   **Automated Totals**: A dynamic "TOTAL (59 Districts)" row is appended at the very bottom, summing up all financial columns. It is visually distinguished with a subtle green background (`#D4EDDA`).
+        *   **Currency Formatting**: All financial columns in the Excel sheet are natively formatted as Indian Rupees (`"₹"#,##0.00`) so they appear correctly when opened in Microsoft Excel.
+    *   **SQL Backup (.sql)**: Generates a raw `.sql` file with `UPDATE` statements for the entire dataset, timestamped for archival purposes.
 *   **Lock/Unlock Mechanism**: Administrators have the exclusive ability to override the DEO lock. An "Unlock" button is available in the DataTable for each locked row. Clicking it resets the `is_locked` status to `0` in the database, allowing the DEO to resubmit if they made an error.
-*   **Premium Grid UI**: A high-performance DataTables grid displays all districts with advanced typography, soft shadow hover animations, and a styled sticky header. All financial columns are prepended with the Indian Rupee symbol (₹).
+*   **Premium Grid UI (DataTables)**: 
+    *   **Sticky & Frozen Elements**: The table features a sticky top header (`position: sticky`) and a frozen first column (`left: 0`) with proper z-indexing, ensuring the District Name and column titles are always visible during vertical and horizontal scrolling.
+    *   **Dynamic Totals Footer**: The table includes a frozen footer (`tfoot`) that automatically sums up Gross Dues, Recovered Amounts, Batte Khatte, Court Stayed, and Net Recoverable Targets across all loaded districts, matching the Excel export logic.
+    *   **Aesthetics**: A high-performance DataTables grid displaying all districts with advanced typography (Inter/Segoe UI), soft shadow hover animations (`transform: scale(1.002)`). All financial columns are dynamically prepended with the Indian Rupee symbol (₹) using JavaScript formatters.
 
 ## API Endpoints (`worker.js`)
 
