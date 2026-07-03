@@ -33,6 +33,21 @@ The `excise_dues` table tracks financial records for the districts. The system c
 *   `last_updated` (DATETIME) - Timestamp of any modification.
 *   `cug_hash` (TEXT) - Stores the SHA-256 hash of the DEO's 10-digit CUG (Closed User Group) mobile number.
 
+## Mathematical Calculation Logic
+
+To minimize database load and ensure instantaneous user feedback, all financial calculations are performed **reactively on the client-side** (in both `index.html` and `admin.html`), utilizing the exact same formulas:
+
+1.  **Total Dues Left (कुल बकाया धनराशि)**:
+    *   **Formula**: `Total Dues` - `Collected Till Date` - `Collected After Date (Input)`
+    *   This represents the gross remaining dues before applying any special deductions.
+2.  **Net Recoverable Amount (शुद्ध वसूल की जाने वाली धनराशि)**:
+    *   **Formula**: `Total Dues Left` - `Batte Khatte Amount (Input)` - `Court Stayed Amount (Input)`
+    *   **Floor Constraint**: The UI enforces a floor limit using `Math.max(0, value)` so that the net recoverable amount can never display as a negative number.
+3.  **Logical Submit Validation**:
+    *   To prevent mathematical impossibilities from being entered into the database, the DEO Portal physically disables the "Verify & Lock Record" button if:
+        *   `Batte Khatte Amount > Total Dues Left` (Cannot deduct more than what remains).
+        *   `Court Stayed Amount > (Total Dues Left - Batte Khatte Amount)` (Cannot stay more than the remainder).
+
 ## Comprehensive Feature List
 
 ### DEO Portal (`index.html`)
