@@ -1,6 +1,6 @@
 # Scripts and Raw Data
-scripts_and_data/
-
+scripts_and_data/*.sql
+scripts_and_data/*hash*
 # Cloudflare / Wrangler
 .wrangler/
 dist/
