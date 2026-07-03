@@ -86,9 +86,14 @@ To minimize database load and ensure instantaneous user feedback, all financial 
 
 ## API Endpoints (`worker.js`)
 
-**Security**: All endpoints strictly require an `X-API-Secret` header matching the `API_SECRET` Wrangler environment variable to prevent unauthenticated access or bot scraping.
+**Security & DDoS Protection**: All endpoints strictly require an `X-API-Secret` header matching the `API_SECRET` Wrangler environment variable to prevent unauthenticated access or bot scraping. Furthermore, the Worker implements robust defenses:
+*   **In-Memory Rate Limiting**: The worker maintains a sliding window `Map` tracking the `cf-connecting-ip`. It limits traffic to 60 requests per minute per IP to prevent brute-force attacks and database spam, returning HTTP 429 (Too Many Requests).
+*   **Memory Leak Prevention**: Under severe DDoS conditions, if the rate-limiting map exceeds 5000 unique IP entries, it aggressively auto-clears to prevent V8 memory exhaustion.
+*   **CORS Management**: Explicitly handles HTTP `OPTIONS` preflight requests allowing cross-origin resource sharing from the frontend domain.
+*   **Native Cryptography**: Utilizes the native Cloudflare `crypto.subtle.digest` (Web Crypto API) to perform SHA-256 hashing at the edge without external dependencies.
 
-*   `GET /`: Returns all district records.
+**Routes**:
+*   `GET /`: Returns all 59 district records for table rendering.
 *   `POST /`: Updates financial columns, locks the record, and logs timestamps/DEO name.
 *   `POST /auth`: Authenticates the Admin page PIN.
 *   `POST /unlock`: Resets a district's lock status (`is_locked = 0`).
