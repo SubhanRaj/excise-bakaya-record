@@ -37,17 +37,26 @@ The `excise_dues` table tracks financial records for the districts. The system c
 
 ### DEO Portal (`index.html`)
 
-*   **CUG Authentication & Verification**: The initial screen is blurred out, preventing access until the DEO enters their authorized 10-digit CUG number. The frontend sends this number to the backend `verify-deo` endpoint, where it is hashed using SHA-256 and compared against the stored `cug_hash` in the database. 
-*   **Session State & Auto-Selection**: Upon successful CUG verification, the system uses `localStorage` to remember the login. It automatically selects the DEO's corresponding district from the dropdown and disables it, ensuring they can only enter data for their authorized district. A secure logout feature clears this session.
-*   **Form Locking & DEO Name Capture**: To prevent duplicate or unauthorized overwrites, the system employs a rigid locking mechanism. Once the DEO fills the form and clicks submit, a mandatory SweetAlert2 prompt requires them to type their exact Name ("जिला आबकारी अधिकारी का नाम दर्ज करें"). The submission is sent to the backend, the `is_locked` flag is set to `1` in the DB, and the `deo_name` is stored. Locally, a `locked_district_{id}` flag is saved to `localStorage`. If `is_locked` is true, the form is completely hidden, and a locked warning is displayed.
-*   **Real-time Client-side Calculations**: Financial fields like "Total Dues Left" and "Net Recoverable Amount" are calculated reactively in JavaScript as the user types. Input formatting (commas for Lakhs/Crores) is strictly enforced using Cleave.js, ensuring Indian Numeral formatting (₹). The submit button is automatically disabled if input amounts exceed logical mathematical limits.
+*   **1. Zero-Trust CUG Authentication**: The initial screen is completely blurred (`filter: blur(8px);`), preventing any interaction. The DEO is prompted via a non-dismissible SweetAlert2 modal to enter their authorized 10-digit CUG mobile number. The frontend sends this to the `verify-deo` worker endpoint, which hashes it using SHA-256 and compares it against the `cug_hash` in the D1 database.
+*   **2. Persistent Session & Hard-Coded Auto-Selection**: Upon successful CUG verification, the system stores `cug_verified_district_id` in `localStorage`. The page unblurs, automatically selects the DEO's specific district from the dropdown, and explicitly disables the dropdown (`disabled = true`). This physically prevents a DEO from submitting data for any other district. A secure Logout button is provided to clear this session.
+*   **3. The Locking Lifecycle (DEO Side)**: 
+    *   **Pre-Submit Check**: Before the form even renders, the system checks the `is_locked` database flag and a local `locked_district_{id}` flag. If locked, the form is entirely hidden and replaced with a yellow warning alert.
+    *   **The Lock Action**: When the DEO clicks submit, a mandatory SweetAlert2 prompt requires them to manually type their exact Name ("जिला आबकारी अधिकारी का नाम दर्ज करें"). This acts as a digital signature.
+    *   **Database Commit**: The frontend payload (financials + DEO Name) is sent to the API. The API updates the record, records the `locked_at` timestamp, stores the `deo_name`, and decisively flips `is_locked` to `1`.
+    *   **Post-Lock State**: Upon a `200 OK` response, the form instantly disappears from the UI and is replaced by the locked warning, preventing any double-submissions or tampering.
+*   **4. Real-time Client-side Calculations**: Financial fields like "Total Dues Left" and "Net Recoverable Amount" are calculated reactively in JavaScript as the user types. Input formatting is strictly enforced using Cleave.js, ensuring Indian Numeral formatting (₹). The submit button is automatically disabled if input amounts exceed logical mathematical limits.
 
 ### Admin Dashboard (`admin.html`)
 
-*   **Authentication**: Secure PIN-protected access verified against the Cloudflare secret `env.ADMIN_PIN`. It uses `sessionStorage` to persist login during the active browser session, featuring a secure Logout button (Tabler icon).
-*   **Offline Caching for Performance**: The dashboard utilizes IndexedDB (via Dexie.js) to instantly load the 59 districts upon revisit. This drastically reduces read queries on the Cloudflare D1 database and provides an instant load experience.
-*   **Manual Sync**: A manual "Sync" button fetches fresh, bypassing the Dexie cache, paired with a dynamic "Last Sync" timestamp.
-*   **Data Export & Reporting**:
+*   **1. Secure Admin Authentication**: Access is strictly PIN-protected via a non-dismissible SweetAlert2 prompt. The entered PIN is verified against the backend Cloudflare Wrangler Secret `env.ADMIN_PIN`. Upon success, `sessionStorage` (not localStorage) is used to persist the login, ensuring the admin session is automatically destroyed when the browser tab is closed.
+*   **2. The Locking Lifecycle (Admin Side - Override)**: 
+    *   Administrators have the exclusive, ultimate authority to override the DEO lock. 
+    *   In the Admin DataTable, every locked district row displays a red "Locked" badge accompanied by an "Unlock" button.
+    *   Clicking "Unlock" triggers a confirmation modal. If confirmed, a request is sent to the `/unlock` API endpoint.
+    *   The API resets `is_locked` to `0` in the database. The Admin dashboard automatically triggers a silent background sync (`syncData(false)`) to refresh the UI, and the DEO can instantly see the form again on their portal to resubmit data.
+*   **3. Offline Caching for Performance**: The dashboard utilizes IndexedDB (via Dexie.js) to instantly load the 59 districts upon revisit. This drastically reduces read queries on the Cloudflare D1 database and provides an instant load experience.
+*   **4. Manual Sync**: A manual "Sync" button fetches fresh data, bypassing the Dexie cache, paired with a dynamic "Last Sync" timestamp.
+*   **5. Data Export & Reporting**:
     *   **Excel (.xlsx) Generation**: Utilizes SheetJS to generate highly formatted Excel reports natively on the client device. 
         *   **Auto-Sync**: Triggering an Excel export automatically initiates a silent background sync with the Cloudflare D1 database (`syncData(false)`), ensuring the downloaded report always contains the absolute most up-to-date information, bypassing the local Dexie cache.
         *   **Advanced Formatting**: The generated Excel file features a custom header with the exact Date and Time of generation (e.g., "Excise Bakaya District Wise Summary as on 13-Nov-2025, 14:30 PM").
@@ -55,7 +64,6 @@ The `excise_dues` table tracks financial records for the districts. The system c
         *   **Automated Totals**: A dynamic "TOTAL (59 Districts)" row is appended at the very bottom, summing up all financial columns. It is visually distinguished with a subtle green background (`#D4EDDA`).
         *   **Currency Formatting**: All financial columns in the Excel sheet are natively formatted as Indian Rupees (`"₹"#,##0.00`) so they appear correctly when opened in Microsoft Excel.
     *   **SQL Backup (.sql)**: Generates a raw `.sql` file with `UPDATE` statements for the entire dataset, timestamped for archival purposes.
-*   **Lock/Unlock Mechanism**: Administrators have the exclusive ability to override the DEO lock. An "Unlock" button is available in the DataTable for each locked row. Clicking it resets the `is_locked` status to `0` in the database, allowing the DEO to resubmit if they made an error.
 *   **Premium Grid UI (DataTables)**: 
     *   **Sticky & Frozen Elements**: The table features a sticky top header (`position: sticky`) and a frozen first column (`left: 0`) with proper z-indexing, ensuring the District Name and column titles are always visible during vertical and horizontal scrolling.
     *   **Dynamic Totals Footer**: The table includes a frozen footer (`tfoot`) that automatically sums up Gross Dues, Recovered Amounts, Batte Khatte, Court Stayed, and Net Recoverable Targets across all loaded districts, matching the Excel export logic.
