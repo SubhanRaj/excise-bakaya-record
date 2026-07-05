@@ -94,6 +94,7 @@ To minimize database load and ensure instantaneous user feedback, all financial 
         *   **Automated Totals**: A dynamic "TOTAL (59 Districts)" row is appended at the very bottom, summing up all financial columns. It is visually distinguished with a subtle green background (`#D4EDDA`).
         *   **Currency Formatting**: All financial columns in the Excel sheet are natively formatted as Indian Rupees (`"₹"#,##0.00`) so they appear correctly when opened in Microsoft Excel.
     *   **SQL Backup (.sql)**: Generates a raw `.sql` file with `UPDATE` statements for the entire dataset, timestamped for archival purposes.
+*   **6. Demo Mode Management**: The dashboard includes a "Truncate Demo" button explicitly designed to delete demo data. This action triggers an API endpoint that is securely hardcoded to target only the "Demo District". This provides a one-click, risk-free cleanup mechanism for administrators to permanently remove demo data before the portal goes live, guaranteeing that no real district can ever be truncated.
 *   **Premium Grid UI (DataTables)**: 
     *   **Sticky & Frozen Elements**: The table features a sticky top header (`position: sticky`) and a frozen first column (`left: 0`) with proper z-indexing, ensuring the District Name and column titles are always visible during vertical and horizontal scrolling.
     *   **Dynamic Totals Footer**: The table includes a frozen footer (`tfoot`) that automatically sums up Gross Dues, Recovered Amounts, Batte Khatte, Court Stayed, and Net Recoverable Targets across all loaded districts, matching the Excel export logic.
@@ -112,6 +113,7 @@ To minimize database load and ensure instantaneous user feedback, all financial 
 *   `POST /`: Updates financial columns, locks the record, and logs timestamps/DEO name.
 *   `POST /auth`: Authenticates the Admin page PIN.
 *   `POST /unlock`: Resets a district's lock status (`is_locked = 0`).
+*   `POST /truncate-demo`: Permanently deletes the "Demo District" row from the database. This query strictly enforces `WHERE district_name = 'Demo District'` at the edge, ensuring it is physically impossible to truncate real districts.
 *   `POST /verify-deo`: Verifies the DEO's CUG number hash by comparing the SHA-256 hash of the payload against the stored `cug_hash`.
 
 ## Scripts and Data Processing (`scripts_and_data/`)

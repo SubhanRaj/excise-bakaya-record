@@ -146,6 +146,7 @@
                     <button id="btnSync" class="btn btn-outline-secondary btn-sm fw-bold shadow-sm" onclick="syncData()"><i class="ti ti-refresh"></i> Sync</button>
                     <button id="btnExportExcel" class="btn btn-outline-success btn-sm fw-bold shadow-sm" onclick="exportToExcel()"><i class="ti ti-file-spreadsheet"></i> Excel</button>
                     <button id="btnExportSQL" class="btn btn-outline-info btn-sm fw-bold shadow-sm" onclick="exportToSQL()"><i class="ti ti-database-export"></i> SQL</button>
+                    <button id="btnTruncateDemo" class="btn btn-outline-warning btn-sm fw-bold shadow-sm" onclick="truncateDemoDistrict()"><i class="ti ti-eraser"></i> Truncate Demo</button>
                     <button id="btnLogout" class="btn btn-outline-danger btn-sm fw-bold shadow-sm" onclick="logoutAdmin()"><i class="ti ti-logout"></i> Logout</button>
                 </div>
             </div>
@@ -403,6 +404,36 @@
                         syncData(false);
                     } else {
                         Swal.fire('Error', 'Failed to unlock.', 'error');
+                    }
+                } catch (err) {
+                    Swal.fire('Error', 'Network error.', 'error');
+                }
+            }
+        }
+
+        async function truncateDemoDistrict() {
+            const result = await Swal.fire({
+                title: 'Truncate Demo Data?',
+                text: "This will permanently delete the Demo District from the database. This action cannot be undone.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Yes, Delete it!'
+            });
+
+            if (result.isConfirmed) {
+                try {
+                    const res = await fetch(API_URL + "truncate-demo", {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-API-Secret': '63eefe946a94699dd661ebdd83150caec566e2c8c6cf63839165d4bf98f080f2' }
+                    });
+
+                    if (res.ok) {
+                        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Demo District Deleted', showConfirmButton: false, timer: 2000 });
+                        syncData(false);
+                    } else {
+                        const data = await res.json();
+                        Swal.fire('Error', data.error || 'Failed to truncate.', 'error');
                     }
                 } catch (err) {
                     Swal.fire('Error', 'Network error.', 'error');

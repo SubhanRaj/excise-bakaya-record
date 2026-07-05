@@ -100,6 +100,24 @@ export default {
     }
 
     // ---------------------------------------------------------
+    // ROUTE: /truncate-demo (Admin one-time clear demo data)
+    // ---------------------------------------------------------
+    if (request.method === "POST" && url.pathname === "/truncate-demo") {
+      try {
+        await env.DB.prepare(
+          `DELETE FROM excise_dues WHERE district_name = 'Demo District'`
+        ).run();
+
+        return Response.json({ success: true }, { headers: corsHeaders });
+      } catch (err) {
+        return Response.json(
+          { error: "Database Error" },
+          { status: 500, headers: corsHeaders },
+        );
+      }
+    }
+
+    // ---------------------------------------------------------
     // ROUTE: /verify-deo (CUG authentication)
     // ---------------------------------------------------------
     if (request.method === "POST" && url.pathname === "/verify-deo") {
