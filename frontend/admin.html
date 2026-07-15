@@ -157,10 +157,11 @@
                         <tr>
                             <th>District</th>
                             <th>वसूल की जाने वाली सकल धनराशि</th>
-                            <th>13-Nov-25 तक वसूल की गई</th>
-                            <th>13-Nov-25 के उपरांत वसूल की गई</th>
+                            <th>08-Jul-26 तक वसूल की गई</th>
+                            <th>08-Jul-26 के उपरांत वसूल की गई</th>
                             <th class="center-col">बट्टे खाते (Count)</th>
                             <th>बट्टे खाते (Amount)</th>
+                            <th class="center-col">न्यायालय स्थगित (Count)</th>
                             <th>सक्षम न्यायालय द्वारा स्थिगित</th>
                             <th>शुद्ध वसूल की जाने वाली</th>
                             <th class="center-col">Status</th>
@@ -300,7 +301,7 @@
             const tbody = document.getElementById('tableBody');
             let rowsHtml = '';
             
-            let tGross = 0, tTill = 0, tAfter = 0, tBCount = 0, tBAmt = 0, tCourt = 0, tNet = 0;
+            let tGross = 0, tTill = 0, tAfter = 0, tBCount = 0, tBAmt = 0, tCourtCount = 0, tCourt = 0, tNet = 0;
 
             dbData.forEach(row => {
                 const totalDues = parseFloat(row.total_dues) || 0;
@@ -308,6 +309,7 @@
                 const afterDate = parseFloat(row.collected_after_date) || 0;
                 const batteCount = parseInt(row.batte_khatte_count) || 0;
                 const batteAmount = parseFloat(row.batte_khatte_amount) || 0;
+                const courtCaseCount = parseInt(row.court_case_count) || 0;
                 const courtStayed = parseFloat(row.court_stayed_amount) || 0;
 
                 const duesLeft = totalDues - tillDate - afterDate;
@@ -318,6 +320,7 @@
                 tAfter += afterDate;
                 tBCount += batteCount;
                 tBAmt += batteAmount;
+                tCourtCount += courtCaseCount;
                 tCourt += courtStayed;
                 tNet += targetRecovery;
 
@@ -347,6 +350,7 @@
                     <td class="amount-col">${formatNumber(afterDate)}</td>
                     <td class="center-col fw-bold">${batteCount}</td>
                     <td class="amount-col">${formatNumber(batteAmount)}</td>
+                    <td class="center-col fw-bold">${courtCaseCount}</td>
                     <td class="amount-col">${formatNumber(courtStayed)}</td>
                     <td class="amount-col fw-bold">${formatNumber(targetRecovery)}</td>
                     <td class="center-col">${statusHtml}</td>
@@ -367,6 +371,7 @@
                 <td class="amount-col">${formatNumber(tAfter)}</td>
                 <td class="center-col">${tBCount}</td>
                 <td class="amount-col">${formatNumber(tBAmt)}</td>
+                <td class="center-col">${tCourtCount}</td>
                 <td class="amount-col">${formatNumber(tCourt)}</td>
                 <td class="amount-col text-danger">${formatNumber(tNet)}</td>
                 <td class="center-col">-</td>
@@ -382,12 +387,13 @@
 
         async function unlockDistrict(id, districtName) {
             const result = await Swal.fire({
-                title: 'Confirm Unlock',
-                text: `Are you sure you want to unlock data entry for ${districtName}?`,
+                title: 'अनलॉक की पुष्टि करें',
+                html: `<span lang="hi">क्या आप वाकई <strong>${districtName}</strong> जिले के लिए डेटा एंट्री पुनः खोलना चाहते हैं?</span>`,
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#d33',
-                confirmButtonText: 'Yes, Unlock it!'
+                confirmButtonColor: '#dc2626',
+                confirmButtonText: 'हाँ, अनलॉक करें',
+                cancelButtonText: 'रद्द करें'
             });
 
             if (result.isConfirmed) {
@@ -413,12 +419,13 @@
 
         async function truncateDemoDistrict() {
             const result = await Swal.fire({
-                title: 'Truncate Demo Data?',
-                text: "This will permanently delete the Demo District from the database. This action cannot be undone.",
+                title: 'डेमो डेटा हटाएं?',
+                html: '<span lang="hi">यह डेटाबेस से Demo District को <strong class="text-danger">स्थायी रूप से</strong> हटा देगा। यह क्रिया पूर्ववत नहीं की जा सकती।</span>',
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#d33',
-                confirmButtonText: 'Yes, Delete it!'
+                confirmButtonColor: '#dc2626',
+                confirmButtonText: 'हाँ, हटाएं',
+                cancelButtonText: 'रद्द करें'
             });
 
             if (result.isConfirmed) {
@@ -459,26 +466,28 @@
                 return Swal.fire('Info', 'No data to export.', 'info');
             }
             
-            let tGrossE = 0, tTillE = 0, tAfterE = 0, tBCountE = 0, tBAmtE = 0, tCourtE = 0, tNetE = 0;
+            let tGrossE = 0, tTillE = 0, tAfterE = 0, tBCountE = 0, tBAmtE = 0, tCourtCountE = 0, tCourtE = 0, tNetE = 0;
             const exportData = data.map(row => {
                 const duesLeft = (row.total_dues || 0) - (row.collected_till_date || 0) - (row.collected_after_date || 0);
                 const target = Math.max(0, duesLeft - (row.batte_khatte_amount || 0) - (row.court_stayed_amount || 0));
-                
+
                 tGrossE += (row.total_dues || 0);
                 tTillE += (row.collected_till_date || 0);
                 tAfterE += (row.collected_after_date || 0);
                 tBCountE += (row.batte_khatte_count || 0);
                 tBAmtE += (row.batte_khatte_amount || 0);
+                tCourtCountE += (row.court_case_count || 0);
                 tCourtE += (row.court_stayed_amount || 0);
                 tNetE += target;
-                
+
                 return {
                     "District Name": row.district_name,
                     "Total Dues": row.total_dues,
-                    "Collected Till 13-Nov-25": row.collected_till_date,
-                    "Collected After 13-Nov-25": row.collected_after_date,
+                    "Collected Till 08-Jul-26": row.collected_till_date,
+                    "Collected After 08-Jul-26": row.collected_after_date,
                     "Batte Khatte Count": row.batte_khatte_count,
                     "Batte Khatte Amount": row.batte_khatte_amount,
+                    "Court Case Count": row.court_case_count,
                     "Court Stayed Amount": row.court_stayed_amount,
                     "Total Dues Left": duesLeft,
                     "Net Recoverable Target": target,
@@ -487,14 +496,15 @@
                     "Locked At": row.locked_at ? new Date(row.locked_at.replace(' ', 'T') + 'Z').toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A'
                 };
             });
-            
+
             exportData.push({
                 "District Name": `TOTAL (${data.length} Districts)`,
                 "Total Dues": tGrossE,
-                "Collected Till 13-Nov-25": tTillE,
-                "Collected After 13-Nov-25": tAfterE,
+                "Collected Till 08-Jul-26": tTillE,
+                "Collected After 08-Jul-26": tAfterE,
                 "Batte Khatte Count": tBCountE,
                 "Batte Khatte Amount": tBAmtE,
+                "Court Case Count": tCourtCountE,
                 "Court Stayed Amount": tCourtE,
                 "Total Dues Left": tGrossE - tTillE - tAfterE,
                 "Net Recoverable Target": tNetE,
@@ -509,12 +519,12 @@
             const formattedDate = now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
             
             XLSX.utils.sheet_add_aoa(ws, [[`Excise Bakaya District Wise Summary as on ${formattedDate}`]], { origin: "A1" });
-            ws['!merges'] = [{ s: {r: 0, c: 0}, e: {r: 0, c: 11} }];
-            
+            ws['!merges'] = [{ s: {r: 0, c: 0}, e: {r: 0, c: 12} }];
+
             ws['!cols'] = [
-                { wch: 20 }, { wch: 22 }, { wch: 24 }, { wch: 26 }, 
-                { wch: 20 }, { wch: 22 }, { wch: 26 }, { wch: 20 }, 
-                { wch: 24 }, { wch: 12 }, { wch: 25 }, { wch: 22 }
+                { wch: 20 }, { wch: 22 }, { wch: 24 }, { wch: 26 },
+                { wch: 20 }, { wch: 22 }, { wch: 20 }, { wch: 26 },
+                { wch: 20 }, { wch: 24 }, { wch: 12 }, { wch: 25 }, { wch: 22 }
             ];
 
             ws['!views'] = [{ state: 'frozen', xSplit: 0, ySplit: 3 }];
@@ -542,20 +552,20 @@
                             fill: { fgColor: { rgb: "D4EDDA" } }, // Beautiful subtle green
                             alignment: { vertical: "center" } 
                         };
-                        const amountCols = [1, 2, 3, 5, 6, 7, 8];
+                        const amountCols = [1, 2, 3, 5, 7, 8, 9];
                         if (amountCols.includes(C)) {
                             ws[cellRef].z = '"₹"#,##0.00';
                             ws[cellRef].s.alignment.horizontal = "right";
-                        } else if (C === 4 || C === 9) {
+                        } else if (C === 4 || C === 6 || C === 10) {
                             ws[cellRef].s.alignment.horizontal = "center";
                         }
                     } else if (R > 2) {
                         ws[cellRef].s = { alignment: { vertical: "center" } };
-                        const amountCols = [1, 2, 3, 5, 6, 7, 8];
+                        const amountCols = [1, 2, 3, 5, 7, 8, 9];
                         if (amountCols.includes(C)) {
                             ws[cellRef].z = '"₹"#,##0.00';
                             ws[cellRef].s.alignment.horizontal = "right";
-                        } else if (C === 4 || C === 9) {
+                        } else if (C === 4 || C === 6 || C === 10) {
                             ws[cellRef].s.alignment.horizontal = "center";
                         }
                     }
@@ -580,7 +590,7 @@
             data.forEach(row => {
                 const lAt = row.locked_at ? `'${row.locked_at}'` : 'NULL';
                 const dName = row.deo_name ? `'${row.deo_name}'` : 'NULL';
-                sql += `UPDATE excise_dues SET collected_after_date = ${row.collected_after_date}, batte_khatte_count = ${row.batte_khatte_count}, batte_khatte_amount = ${row.batte_khatte_amount}, court_stayed_amount = ${row.court_stayed_amount}, is_locked = ${row.is_locked}, deo_name = ${dName}, locked_at = ${lAt} WHERE id = ${row.id};\n`;
+                sql += `UPDATE excise_dues SET collected_after_date = ${row.collected_after_date}, batte_khatte_count = ${row.batte_khatte_count}, batte_khatte_amount = ${row.batte_khatte_amount}, court_case_count = ${row.court_case_count}, court_stayed_amount = ${row.court_stayed_amount}, is_locked = ${row.is_locked}, deo_name = ${dName}, locked_at = ${lAt} WHERE id = ${row.id};\n`;
             });
             
             const blob = new Blob([sql], { type: "text/plain;charset=utf-8" });

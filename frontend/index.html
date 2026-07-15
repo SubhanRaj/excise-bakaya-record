@@ -49,6 +49,11 @@
                         <button id="btnDeoLogout" class="btn btn-outline-danger btn-sm fw-bold shadow-sm d-none" onclick="logoutDeo()"><i class="ti ti-logout"></i> Logout</button>
                     </div>
 
+                    <div class="alert alert-info small mb-4" lang="hi">
+                        <strong>सूचना:</strong> इस पोर्टल पर केवल 31-मार्च-2019 तक के प्रकरणों से संबंधित बकाया धनराशि की
+                        प्रविष्टि की जाए। तिथि के बाद के किसी भी नए प्रकरण का डेटा यहाँ दर्ज न करें।
+                    </div>
+
                     <div class="mb-4">
                         <label class="form-label fw-bold text-danger">1. Select District</label>
                         <select id="districtSelect" class="form-select form-select-lg">
@@ -75,7 +80,7 @@
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">3. 13-November-2025 तक वसूल की गई धनराशि</label>
+                                <label class="form-label">3. 08-Jul-26 तक वसूल की गई धनराशि</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₹</span>
                                     <input type="text" id="tillPac" class="form-control readonly-field" readonly>
@@ -83,7 +88,7 @@
                             </div>
 
                             <div class="col-md-12 mt-4">
-                                <label class="form-label text-primary fw-bold">4. 13-November-2025 के उपरांत वसूल की गई
+                                <label class="form-label text-primary fw-bold">4. 08-Jul-26 के उपरांत वसूल की गई
                                     धनराशि</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₹</span>
@@ -123,11 +128,22 @@
 
                             <div class="col-md-12 mt-4">
                                 <label class="form-label text-primary fw-bold">7. सक्षम न्यायालय द्वारा स्थगित प्रकरणों
-                                    में निहित धनराशि</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">₹</span>
-                                    <input type="text" id="courtStayed" class="form-control border-primary format-inr"
-                                        required>
+                                    की संख्या एवं उसमें निहित धनराशि</label>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light">Count</span>
+                                            <input type="number" id="courtCaseCount"
+                                                class="form-control border-primary" min="0" placeholder="0" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <div class="input-group">
+                                            <span class="input-group-text">₹ Amount</span>
+                                            <input type="text" id="courtStayed"
+                                                class="form-control border-primary format-inr" required>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -168,9 +184,26 @@
             tillPac: document.getElementById('tillPac'),
             duesLeft: document.getElementById('duesLeft'),
             batteKhatteCount: document.getElementById('batteKhatteCount'),
+            courtCaseCount: document.getElementById('courtCaseCount'),
             finalRecovery: document.getElementById('finalRecovery'),
             btn: document.getElementById('submitBtn')
         };
+
+        // DEO name validation: real names only — no digits, no designation words, letters/space/./-/' only
+        const NAME_CHARS_RE = /^[A-Za-z][A-Za-z.\-' ]*$/;
+        const DESIGNATION_RE = /\b(deo|adeo|d\.?e\.?o\.?|excise\s*officer|officer|admin)\b/i;
+        function validateDeoName(value) {
+            if (!value || !value.trim()) return 'अधिकारी का नाम अनिवार्य है!';
+            if (/\d/.test(value)) return 'नाम में अंक (digits) मान्य नहीं हैं!';
+            if (DESIGNATION_RE.test(value)) return 'कृपया पदनाम नहीं, वास्तविक नाम दर्ज करें!';
+            if (!NAME_CHARS_RE.test(value.trim())) return 'कृपया मान्य नाम दर्ज करें (केवल अक्षर)!';
+        }
+
+        async function sha256Hex(text) {
+            const encoder = new TextEncoder();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(text));
+            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
 
         async function loadData() {
             try {
@@ -209,6 +242,7 @@
                     cleaveAfterPac.setRawValue('0');
                     els.batteKhatteCount.value = '0';
                     cleaveBatte.setRawValue('0');
+                    els.courtCaseCount.value = '0';
                     cleaveCourt.setRawValue('0');
                     calculateMath();
                 }
@@ -242,15 +276,14 @@
 
             const { value: deoName } = await Swal.fire({
                 title: 'Verify & Lock Record',
-                text: 'लॉक करने से पूर्व कृपया जिला आबकारी अधिकारी का नाम दर्ज करें:',
+                html: '<p lang="hi">लॉक करने के पश्चात यह रिकॉर्ड <strong class="text-danger">पुनः संपादित नहीं</strong> किया जा सकेगा। कृपया जिला आबकारी अधिकारी का नाम दर्ज करें:</p>',
                 input: 'text',
                 inputPlaceholder: 'अधिकारी का नाम',
                 showCancelButton: true,
-                confirmButtonColor: '#0d6efd',
+                confirmButtonColor: '#dc2626',
                 confirmButtonText: 'Lock Record',
-                inputValidator: (value) => {
-                    if (!value) return 'अधिकारी का नाम अनिवार्य है!';
-                }
+                cancelButtonText: 'रद्द करें',
+                inputValidator: validateDeoName
             });
 
             if (deoName) {
@@ -259,10 +292,11 @@
 
                 const payload = {
                     id: currentRecord.id,
-                    deo_name: deoName,
+                    deo_name: deoName.trim(),
                     collected_after_date: parseFloat(cleaveAfterPac.getRawValue()) || 0,
                     batte_khatte_count: parseInt(els.batteKhatteCount.value) || 0,
                     batte_khatte_amount: parseFloat(cleaveBatte.getRawValue()) || 0,
+                    court_case_count: parseInt(els.courtCaseCount.value) || 0,
                     court_stayed_amount: parseFloat(cleaveCourt.getRawValue()) || 0
                 };
 
@@ -293,9 +327,20 @@
             }
         });
 
-        function logoutDeo() {
-            localStorage.removeItem('cug_verified_district_id');
-            location.reload();
+        async function logoutDeo() {
+            const result = await Swal.fire({
+                title: 'लॉगआउट करें?',
+                text: 'क्या आप वाकई लॉगआउट करना चाहते हैं?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                confirmButtonText: 'लॉगआउट',
+                cancelButtonText: 'रद्द करें'
+            });
+            if (result.isConfirmed) {
+                localStorage.removeItem('cug_verified_district_id');
+                location.reload();
+            }
         }
 
         async function enforceCugLogin() {
@@ -328,10 +373,12 @@
             if (cugNumber) {
                 try {
                     Swal.showLoading();
+                    // Hash the CUG number in-browser — the raw number never leaves the device.
+                    const cugHash = await sha256Hex(cugNumber);
                     const res = await fetch(API_URL + 'verify-deo', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-API-Secret': '63eefe946a94699dd661ebdd83150caec566e2c8c6cf63839165d4bf98f080f2' },
-                        body: JSON.stringify({ cug: cugNumber })
+                        body: JSON.stringify({ cug_hash: cugHash })
                     });
                     
                     const data = await res.json();

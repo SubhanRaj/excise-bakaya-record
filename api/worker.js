@@ -122,22 +122,16 @@ export default {
     // ---------------------------------------------------------
     if (request.method === "POST" && url.pathname === "/verify-deo") {
       try {
-        const { cug } = await request.json();
-        if (!cug || cug.length !== 10) {
-          return Response.json({ success: false, error: "Invalid CUG number" }, { status: 400, headers: corsHeaders });
+        const { cug_hash } = await request.json();
+        // Client hashes the CUG number before it ever leaves the browser (SHA-256, Web Crypto)
+        if (!cug_hash || !/^[a-f0-9]{64}$/.test(cug_hash)) {
+          return Response.json({ success: false, error: "Invalid CUG hash" }, { status: 400, headers: corsHeaders });
         }
-
-        // Hash the CUG using Web Crypto API
-        const encoder = new TextEncoder();
-        const dataBuffer = encoder.encode(cug);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
         // Verify against database
         const result = await env.DB.prepare(
           "SELECT id, district_name FROM excise_dues WHERE cug_hash = ?"
-        ).bind(hashHex).first();
+        ).bind(cug_hash).first();
 
         if (result) {
           return Response.json({ success: true, district_id: result.id, district_name: result.district_name }, { headers: corsHeaders });
@@ -179,15 +173,16 @@ export default {
         // Update the financial records, lock the row, and record the DEO's name & time
         const stmt = env.DB.prepare(
           `
-          UPDATE excise_dues 
-          SET 
-            collected_after_date = ?, 
-            batte_khatte_count = ?, 
-            batte_khatte_amount = ?, 
-            court_stayed_amount = ?, 
-            deo_name = ?, 
-            is_locked = 1, 
-            locked_at = CURRENT_TIMESTAMP, 
+          UPDATE excise_dues
+          SET
+            collected_after_date = ?,
+            batte_khatte_count = ?,
+            batte_khatte_amount = ?,
+            court_case_count = ?,
+            court_stayed_amount = ?,
+            deo_name = ?,
+            is_locked = 1,
+            locked_at = CURRENT_TIMESTAMP,
             last_updated = CURRENT_TIMESTAMP
           WHERE id = ?
         `,
@@ -195,6 +190,7 @@ export default {
           body.collected_after_date,
           body.batte_khatte_count,
           body.batte_khatte_amount,
+          body.court_case_count,
           body.court_stayed_amount,
           body.deo_name,
           body.id,
