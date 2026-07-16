@@ -198,12 +198,6 @@
             if (!NAME_CHARS_RE.test(value.trim())) return 'कृपया मान्य नाम दर्ज करें (केवल अक्षर)!';
         }
 
-        // Excise Dept. CUG mobile numbers all start with this prefix. The seeded demo
-        // account is exempted (by hash, not by number, so the raw value never appears
-        // in shipped source) so it keeps working outside that range.
-        const CUG_PREFIX = '94544';
-        const DEMO_CUG_HASH = 'ce3a598687c8d2e5aa6bedad20e059b4a78cca0adad7e563b07998d5cd226b8c';
-
         // Fire-and-forget corner toast for validation errors not tied to opening a blocking
         // modal, same shape as the reference project's notifyToast (lib/alerts.ts).
         function notifyToast(icon, title, text) {
@@ -212,12 +206,6 @@
                 showConfirmButton: false, showCloseButton: true,
                 timer: text ? 4500 : 2000, timerProgressBar: true
             });
-        }
-
-        async function sha256Hex(text) {
-            const encoder = new TextEncoder();
-            const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(text));
-            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
         async function loadData() {
@@ -382,90 +370,29 @@
             });
             if (result.isConfirmed) {
                 localStorage.removeItem('cug_verified_district_id');
-                location.reload();
+                location.href = 'login.html';
             }
         }
 
-        async function enforceCugLogin() {
+        // CUG login now lives on its own page (login.html) — called only once the redirect
+        // guard below has confirmed a verified session exists, so it just applies the
+        // already-verified district once loadData() has the district list to select from.
+        function enforceCugLogin() {
             const savedDistrictId = localStorage.getItem('cug_verified_district_id');
-            if (savedDistrictId) {
-                document.body.classList.remove('blur-body');
-                els.select.value = savedDistrictId;
-                els.select.disabled = true;
-                document.getElementById('btnDeoLogout').classList.remove('d-none');
-                els.select.dispatchEvent(new Event('change'));
-                return;
-            }
-
-            const { value: cugNumber } = await Swal.fire({
-                title: 'DEO Login Verification',
-                text: 'कृपया अपना 10-अंकीय CUG मोबाइल नंबर दर्ज करें:',
-                input: 'tel',
-                inputPlaceholder: '10-digit CUG Number',
-                inputAttributes: { maxlength: '10', inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'off' },
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                confirmButtonColor: '#0d6efd',
-                confirmButtonText: 'Verify',
-                didOpen: () => {
-                    const input = Swal.getInput();
-                    input.addEventListener('input', () => {
-                        input.value = input.value.replace(/\D/g, '').slice(0, 10);
-                    });
-                },
-                inputValidator: async (value) => {
-                    if (!value || value.length !== 10 || isNaN(value)) {
-                        return 'कृपया सही 10-अंकीय नंबर दर्ज करें!';
-                    }
-                    if (!value.startsWith(CUG_PREFIX)) {
-                        const hash = await sha256Hex(value);
-                        if (hash !== DEMO_CUG_HASH) {
-                            return 'अमान्य CUG नंबर! / Invalid CUG number.';
-                        }
-                    }
-                }
-            });
-
-            if (cugNumber) {
-                try {
-                    Swal.showLoading();
-                    // Hash the CUG number in-browser — the raw number never leaves the device.
-                    const cugHash = await sha256Hex(cugNumber);
-                    const res = await fetch(API_URL + 'verify-deo', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-API-Secret': '63eefe946a94699dd661ebdd83150caec566e2c8c6cf63839165d4bf98f080f2' },
-                        body: JSON.stringify({ cug_hash: cugHash })
-                    });
-                    
-                    const data = await res.json();
-                    
-                    if (res.ok && data.success) {
-                        localStorage.setItem('cug_verified_district_id', data.district_id);
-                        document.body.classList.remove('blur-body');
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Verified',
-                            text: `Welcome, ${data.district_name} DEO.`,
-                            timer: 1500,
-                            showConfirmButton: false
-                        });
-                        
-                        els.select.value = data.district_id;
-                        els.select.disabled = true;
-                        document.getElementById('btnDeoLogout').classList.remove('d-none');
-                        els.select.dispatchEvent(new Event('change'));
-                    } else {
-                        await Swal.fire('Error', data.error || 'Invalid CUG Number.', 'error');
-                        enforceCugLogin(); // Prompt again
-                    }
-                } catch (err) {
-                    await Swal.fire('Error', 'Network Error. Please try again.', 'error');
-                    enforceCugLogin();
-                }
-            }
+            document.body.classList.remove('blur-body');
+            els.select.value = savedDistrictId;
+            els.select.disabled = true;
+            document.getElementById('btnDeoLogout').classList.remove('d-none');
+            els.select.dispatchEvent(new Event('change'));
         }
 
-        loadData().then(() => enforceCugLogin());
+        // Redirect before any data loads if there's no verified session — avoids a flash of
+        // the (blurred) form before bouncing to login.html.
+        if (!localStorage.getItem('cug_verified_district_id')) {
+            location.href = 'login.html';
+        } else {
+            loadData().then(() => enforceCugLogin());
+        }
     </script>
 </body>
 

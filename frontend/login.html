@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEO Login - Excise Bakaya Tracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+    <style>
+        body {
+            background-color: #f4f6f9;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-card {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border: none;
+            border-radius: 10px;
+            max-width: 420px;
+            width: 100%;
+        }
+
+        .brand-badge {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            background: #0d6efd;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 0 auto 1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card login-card p-4">
+        <div class="text-center mb-4">
+            <div class="brand-badge">₹</div>
+            <h6 class="fw-bold mb-0">Department of Excise, Uttar Pradesh</h6>
+            <p class="text-muted small mb-1">Excise Bakaya Recovery Portal</p>
+            <p class="text-muted small mb-0" lang="hi">आबकारी बकाया वसूली पोर्टल</p>
+        </div>
+
+        <form id="loginForm">
+            <label class="form-label fw-bold">DEO Login (CUG Mobile)</label>
+            <input type="tel" id="cugInput" class="form-control form-control-lg mb-2"
+                placeholder="10-digit CUG Number" maxlength="10" inputmode="numeric" pattern="[0-9]*"
+                autocomplete="off" autofocus>
+
+            <div id="loginError" class="alert alert-danger small py-2 px-3 mb-3 d-none" role="alert"></div>
+
+            <button type="submit" id="loginBtn" class="btn btn-primary w-100 fw-bold">Verify / सत्यापित करें</button>
+        </form>
+    </div>
+
+    <script>
+        const API_URL = "https://excise-bakaya-api.shubhanraj2002.workers.dev/";
+        const API_SECRET = "63eefe946a94699dd661ebdd83150caec566e2c8c6cf63839165d4bf98f080f2";
+
+        // Excise Dept. CUG mobile numbers all start with this prefix. The seeded demo
+        // account is exempted (by hash, not by number, so the raw value never appears
+        // in shipped source) so it keeps working outside that range.
+        const CUG_PREFIX = '94544';
+        const DEMO_CUG_HASH = 'ce3a598687c8d2e5aa6bedad20e059b4a78cca0adad7e563b07998d5cd226b8c';
+
+        async function sha256Hex(text) {
+            const encoder = new TextEncoder();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(text));
+            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // Already logged in? Skip straight to the form.
+        if (localStorage.getItem('cug_verified_district_id')) {
+            location.href = 'index.html';
+        }
+
+        const cugInput = document.getElementById('cugInput');
+        const errorBox = document.getElementById('loginError');
+        const loginBtn = document.getElementById('loginBtn');
+
+        cugInput.addEventListener('input', () => {
+            cugInput.value = cugInput.value.replace(/\D/g, '').slice(0, 10);
+        });
+
+        function showError(msg) {
+            errorBox.textContent = msg;
+            errorBox.classList.remove('d-none');
+        }
+
+        function clearError() {
+            errorBox.classList.add('d-none');
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearError();
+
+            const value = cugInput.value.trim();
+            if (!/^\d{10}$/.test(value)) {
+                return showError('कृपया सही 10-अंकीय नंबर दर्ज करें! / Please enter a valid 10-digit number.');
+            }
+
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'सत्यापित हो रहा है... / Verifying...';
+
+            try {
+                // Hash the CUG number in-browser — the raw number never leaves the device.
+                const cugHash = await sha256Hex(value);
+
+                if (!value.startsWith(CUG_PREFIX) && cugHash !== DEMO_CUG_HASH) {
+                    showError('अमान्य CUG नंबर! / Invalid CUG number.');
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Verify / सत्यापित करें';
+                    return;
+                }
+
+                const res = await fetch(API_URL + 'verify-deo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-API-Secret': API_SECRET },
+                    body: JSON.stringify({ cug_hash: cugHash })
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    localStorage.setItem('cug_verified_district_id', data.district_id);
+                    location.href = 'index.html';
+                } else {
+                    showError(data.error === 'Unauthorized' ? 'अमान्य CUG नंबर! / Invalid CUG number.' : (data.error || 'सत्यापन विफल / Verification failed.'));
+                }
+            } catch (err) {
+                showError('नेटवर्क त्रुटि, पुनः प्रयास करें। / Network error, please try again.');
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Verify / सत्यापित करें';
+            }
+        });
+    </script>
+</body>
+
+</html>
