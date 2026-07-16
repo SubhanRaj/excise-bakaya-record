@@ -156,4 +156,5 @@ errors before deploy.
 - **UX Improvements**:
   - **Count Input Placeholders**: Changed the `placeholder="0"` on the count inputs to `placeholder="Type 0 if none"` to prevent users from mistaking a blank field for a pre-filled `0`, which previously triggered the anti-blank validation error.
   - **District Select Removal**: Replaced the legacy interactive `<select>` dropdown for districts with a static text heading (`District: <Name>`). Since the DEO is securely authenticated via their CUG number, the district is inherently locked to their session, rendering the dropdown UI redundant. The subsequent form fields were re-numbered from 1 to 7.
+  - **Count/Amount Synchrony Logic**: Added dynamic inline validation to enforce that if a count is entered (>0), the corresponding amount must also be >0, and vice-versa. Displays a bilingual error directly below the relevant fields and safely disables the submission button if this rule is violated.
 
