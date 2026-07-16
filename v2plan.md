@@ -46,17 +46,17 @@ ALTER TABLE excise_dues ADD COLUMN court_case_count INTEGER DEFAULT 0;
 
 All of this has been implemented locally only (`--local` D1, re-seeded from the Excel data above, verified sum ₹82,020,502.13 across 59 rows). Remote/live D1 untouched.
 
-## Status: implemented locally, ready for remote when you say go
+## Status (superseded — see §8): originally shipped locally-only
 
 - `api/schema.sql` — rewritten, full authoritative schema, applied to local D1 via `DROP`+`CREATE` (local only, no real data at risk).
 - `api/import.sql` — regenerated from the Excel export with the new baseline (`total_dues`, `collected_till_date` = sum of old two columns), applied to local D1.
-- `api/migrations/002_court_case_count.sql` — additive `ALTER TABLE`, **not run on remote**, ready when you say go.
-- `api/migrations/003_v2_baseline_reseed.sql` — 59 non-destructive `UPDATE ... WHERE district_name = ...` statements (only touches `total_dues`/`collected_till_date`, leaves `is_locked`/`deo_name`/`locked_at`/`cug_hash` alone), **not run on remote**, ready when you say go.
+- `api/migrations/002_court_case_count.sql` — additive `ALTER TABLE`.
+- `api/migrations/003_v2_baseline_reseed.sql` — 59 non-destructive `UPDATE ... WHERE district_name = ...` statements (only touches `total_dues`/`collected_till_date`, leaves `is_locked`/`deo_name`/`locked_at`/`cug_hash` alone).
 - `api/worker.js` — CUG verification now expects a pre-hashed `cug_hash` from the client instead of a raw `cug` number; save route now accepts/stores `court_case_count`.
 - `frontend/index.html` — relabeled to "08-Jul-26", added Court Case Count field, DEO-name regex validator, client-side SHA-256 CUG hashing, Hindi lock/logout confirmations, scope-eligibility banner (31-Mar-2019).
 - `frontend/admin.html` — relabeled columns, added Court Case Count to table/totals/Excel export/SQL export, Hindi unlock/truncate-demo confirmations.
 
-Remote deploy of the worker code + the two migration files above is the only thing left, whenever you give the go-ahead.
+All of the above is now live on remote — see §8 for the actual rollout (which also fixed two more district names and added a real session-auth layer beyond what's described here).
 
 ## 6. CUG prefix check, district-name fix, DEO email, leaked contact.csv
 
@@ -66,4 +66,26 @@ Remote deploy of the worker code + the two migration files above is the only thi
 - **CUG hash + email provisioning data** — real CUG mobile numbers (hashed) and DEO emails, sourced from `scripts_and_data/contact.csv` + `emails.csv`, matched against our 59 districts via the same Hindi→English mapping the reference project uses. Generated into `scripts_and_data/deo_seed.sql` (gitignored — see below) and applied to local D1: all 59 districts now have `cug_hash`/`deo_email` populated (previously **entirely NULL locally**, meaning no DEO could log in on a fresh local setup until now). Not yet run on remote.
 - **Security fix: leaked `contact.csv`** — `scripts_and_data/contact.csv` (real officer names + CUG mobile numbers for the whole department) was already committed and pushed to the public GitHub repo. `git rm --cached` on it plus `generated.txt`/`in_db.txt`/`map_cug.py`, and `.gitignore` extended with `scripts_and_data/*.csv`, `*.txt`, `*.py` to match the reference project's gitignore and stop this from recurring. **The old commits still contain it in git history** — that needs a separate history rewrite (not done here) if you want it fully scrubbed, since that's a destructive/force-push operation.
 
-Status: all of the above applied to local D1 only. `api/migrations/004_deo_email_column.sql` and the rename prepended to `003_v2_baseline_reseed.sql` are ready for remote whenever you say go — remote D1 still has `Allahabad`, no `deo_email` column, and no `cug_hash`/DEO login data at all today.
+Status: superseded by §8 — all of this (plus the `Kheri` → `Lakhimpur Kheri` fix caught in the same rollout) is now live on remote.
+
+## 7. DEO login page, inline validation, blank-by-default fields, two-step confirm
+
+- **Bug found in prod testing**: the CUG login `Swal.fire({ input: 'tel' })` had no `maxlength`, so it visually accepted 20+ digits typed into a "10-digit" field — caught by screenshot during the user's own testing pass on `excise-bakaya-form.pages.dev`.
+- **`frontend/login.html`** (new) — DEO-only CUG login as its own page instead of a blocking modal on `index.html`, mirroring `excise-revenue-recovery-portal`'s `/login` page (no admin/email tab here — Admin PIN stays on `admin.html`). CUG entry has `maxlength="10"`, `inputmode="numeric"`, and a strip-non-digits listener; errors render **inline** under the field (a red banner div), not a SweetAlert2 popup — matches the reference project's `Banner`-based pattern ("validation stays inline, SweetAlert2 reserved for irreversible-action confirms"). `index.html` now just checks `localStorage` for a verified session and redirects to `login.html` if absent; all the CUG prefix/hash/demo-exemption logic that used to live in `index.html`'s modal moved here.
+- **Blank-by-default DEO fields** — `collected_after_date`, both count/amount pairs now reset to `''` on district select instead of `'0'`. Submitting with any left blank is blocked by a SweetAlert2 **toast** (`notifyToast()`, added to `index.html`), not the native HTML5 `required` popup (removed from all 5 fields) and not silently coerced to `0` — mirrors the reference project's `blankYear()`/`BLANK_FIELD_TITLE` pattern exactly, including that this specific check stays a toast (not inline), since it's not tied to one field.
+- **Two-step lock confirm** — splits the old single "type your name to lock" prompt into a plain "are you sure, have you checked the data" confirm first, then the existing name-entry prompt, mirroring `confirmFinalSubmit()`/`promptDeoNameAndLock()`. The name-entry prompt's disclaimer text was also rewritten to the reference project's more detailed, bilingual, personal-liability wording.
+
+## 8. Real session auth: httpOnly cookie + district-bound token, remote rollout, git history scrub
+
+Everything below is **live on remote** as of this rollout — not a plan, a record of what shipped.
+
+- **Git history scrub**: `scripts_and_data/contact.csv` (real officer names + CUG mobile numbers) had been committed and pushed to the public repo before `.gitignore` excluded `*.csv`/`*.txt`/`*.py` under `scripts_and_data/`. Untracked, then fully removed from every commit via `git-filter-repo` (verified via `git ls-tree` across all history — zero remaining matches) and force-pushed to `origin/main`.
+- **Two more district-name fixes** caught while reseeding remote: `Baghpat` was already correctly cased (nothing to fix); `Kheri` → `Lakhimpur Kheri` was not, alongside the already-planned `Allahabad` → `Prayagraj`.
+- **Remote D1 truncated and reseeded**: all 59 districts got fresh `total_dues`/`collected_till_date` (08-Jul-2026 baseline, verified sum ₹518,776,884.21 / ₹82,020,502.13), `cug_hash`/`deo_email` populated for every district, `deo_name` cleared, every row unlocked, plus a `Demo District` row (CUG exempted by hash — see CLAUDE.md's Security section for why the raw number isn't written anywhere) for end-to-end pre-launch testing.
+- **Real per-district session auth**: `X-API-Secret` was always a Wrangler secret server-side, but as a static frontend it has to be embedded client-side to be sent at all — never actually secret, just a bot filter. The real gap: `POST /` trusted any caller holding that value to write to *any* district by id, with no check they'd ever verified a CUG for it. Fixed the way `excise-revenue-recovery-portal` does it: `/verify-deo` now signs a district-bound session token (HMAC-SHA256 via `crypto.subtle` — no new dependency, see `worker.js`) and sets it as an `HttpOnly; Secure; SameSite=None` cookie. CORS switched from a wildcard to an exact `FRONTEND_URL` match + `Access-Control-Allow-Credentials`, required for the cross-site cookie (Pages and Workers are separate origins). `POST /` now requires this cookie and 403s if its district doesn't match the row being written — verified live: no cookie → 403, cookie for a different district → 403, matching cookie → succeeds. Added `/deo-logout` to clear it server-side. `GET /` (district dropdown pre-login, and the Admin dashboard, which has no DEO session) is untouched.
+- New Wrangler secret: `JWT_SECRET`. New non-secret var: `FRONTEND_URL` (`wrangler.toml`).
+- Worker deployed, frontend pushed (Cloudflare Pages auto-deploys from `main`) — both confirmed live and matching via smoke test.
+
+**Trade-off noted, not yet acted on**: `SameSite=None` cross-site cookies between two different public-suffix domains (`pages.dev`, `workers.dev`) are exactly what Safari ITP and Chrome's third-party-cookie deprecation target — same open risk the reference project already carries with an identical setup. If a DEO reports "login succeeds but save always fails," check this before assuming the token logic is broken. The real fix would be collapsing both apps onto one zone; not done here since it's a bigger change than this round's scope.
+
+See [CLAUDE.md](./CLAUDE.md) for the durable rules this rollout established (district-name authority, auth boundary, security incident, validation rules) — this file stays a chronological record, CLAUDE.md is what future agents should actually follow.
