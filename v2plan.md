@@ -152,5 +152,8 @@ errors before deploy.
 - **DEO Save/Submit Fix**: Fixed a critical runtime bug where the `POST /` save route crashed with a `ReferenceError` due to calling an undefined function `verifyDeoToken` instead of `verifyToken` in `api/worker.js`.
 - **GitHub Actions Workflows (`.github/workflows/`)**:
   - Configured `ci.yml` to validate JS syntax (`node --check`) for the Worker and verify frontend file availability on every push and PR to the `main` branch.
-  - Configured `deploy.yml` to automatically build/deploy both the API (using `pnpm` and `pnpm run deploy`) and the frontend (via `npx wrangler pages deploy frontend`) to Cloudflare upon pushing to the `main` branch. Requires `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets.
+  - Configured `deploy.yml` to automatically build/deploy both the API (using `pnpm` and `pnpm run deploy` via v11) and the frontend (via `npx wrangler pages deploy frontend`) to Cloudflare upon pushing to the `main` branch. Requires `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets.
+- **UX Improvements**:
+  - **Count Input Placeholders**: Changed the `placeholder="0"` on the count inputs to `placeholder="Type 0 if none"` to prevent users from mistaking a blank field for a pre-filled `0`, which previously triggered the anti-blank validation error.
+  - **District Select Removal**: Replaced the legacy interactive `<select>` dropdown for districts with a static text heading (`District: <Name>`). Since the DEO is securely authenticated via their CUG number, the district is inherently locked to their session, rendering the dropdown UI redundant. The subsequent form fields were re-numbered from 1 to 7.
 
