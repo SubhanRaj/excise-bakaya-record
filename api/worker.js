@@ -147,7 +147,7 @@ export default {
         // Securely compare the provided PIN against the encrypted Cloudflare Secret
         if (pin === env.ADMIN_PIN) {
           const token = await signAdminToken(env.JWT_SECRET);
-          const cookie = `${ADMIN_SESSION_COOKIE}=${token}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${ADMIN_SESSION_TTL_SECONDS}`;
+          const cookie = `${ADMIN_SESSION_COOKIE}=${token}; HttpOnly; Secure; SameSite=None; Partitioned; Path=/; Max-Age=${ADMIN_SESSION_TTL_SECONDS}`;
           return Response.json({ success: true }, { headers: { ...corsHeaders, "Set-Cookie": cookie } });
         } else {
           return Response.json(
@@ -167,7 +167,7 @@ export default {
     // ROUTE: /admin-logout (clears the httpOnly admin session cookie)
     // ---------------------------------------------------------
     if (request.method === "POST" && url.pathname === "/admin-logout") {
-      const cookie = `${ADMIN_SESSION_COOKIE}=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0`;
+      const cookie = `${ADMIN_SESSION_COOKIE}=; HttpOnly; Secure; SameSite=None; Partitioned; Path=/; Max-Age=0`;
       return Response.json({ success: true }, { headers: { ...corsHeaders, "Set-Cookie": cookie } });
     }
 
@@ -236,7 +236,7 @@ export default {
 
         if (result) {
           const token = await signDeoToken(result.id, env.JWT_SECRET);
-          const cookie = `${DEO_SESSION_COOKIE}=${token}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${DEO_SESSION_TTL_SECONDS}`;
+          const cookie = `${DEO_SESSION_COOKIE}=${token}; HttpOnly; Secure; SameSite=None; Partitioned; Path=/; Max-Age=${DEO_SESSION_TTL_SECONDS}`;
           return Response.json(
             { success: true, district_id: result.id, district_name: result.district_name },
             { headers: { ...corsHeaders, "Set-Cookie": cookie } },
@@ -253,7 +253,7 @@ export default {
     // ROUTE: /deo-logout (clears the httpOnly session cookie)
     // ---------------------------------------------------------
     if (request.method === "POST" && url.pathname === "/deo-logout") {
-      const cookie = `${DEO_SESSION_COOKIE}=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0`;
+      const cookie = `${DEO_SESSION_COOKIE}=; HttpOnly; Secure; SameSite=None; Partitioned; Path=/; Max-Age=0`;
       return Response.json({ success: true }, { headers: { ...corsHeaders, "Set-Cookie": cookie } });
     }
 

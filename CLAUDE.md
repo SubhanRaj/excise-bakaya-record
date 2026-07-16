@@ -97,7 +97,12 @@ overview. Rules to preserve:
   different public-suffix domains (`pages.dev`, `workers.dev`) are exactly what Safari ITP and
   Chrome's third-party-cookie deprecation target. If a DEO reports "verify succeeds but every save
   gets 403," check whether their browser is silently dropping the cookie before assuming the token
-  logic is broken.
+  logic is broken. All four `Set-Cookie` headers in `worker.js` carry the `Partitioned` attribute
+  (CHIPS) as a mitigation — this keeps the cookie alive under Chrome's third-party-cookie
+  deprecation, but does **not** help Safari, which blocks third-party cookies outright regardless
+  of `Partitioned`/`SameSite`. The only full fix is moving frontend and API onto the same
+  registrable domain (e.g. a custom domain with `app.` / `api.` subdomains) so the cookie becomes
+  first-party — out of scope until this project has a custom domain.
 - `GET /` and the admin-only routes (`/auth`, `/unlock`, `/truncate-demo`) are intentionally
   **not** gated by the DEO session cookie — `GET /` is used pre-login to populate the district
   dropdown and by the Admin dashboard (which has no DEO session at all). Don't add a cookie
