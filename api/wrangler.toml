@@ -2,6 +2,9 @@ name = "excise-bakaya-api"
 main = "worker.js"
 compatibility_date = "2024-03-20"
 
+[vars]
+FRONTEND_URL = "https://excise-bakaya-form.pages.dev"
+
 # Note: Once you create your D1 database, update the database_id below
 [[d1_databases]]
 binding = "DB"

@@ -1,14 +1,66 @@
 // In-memory store for rate limiting per edge-node instance
 const rateLimitMap = new Map();
 
+const DEO_SESSION_COOKIE = "deo_session";
+const DEO_SESSION_TTL_SECONDS = 60 * 60 * 24; // 1 day — DEOs verify once per data-entry sitting
+
+// Minimal HMAC-signed session token (base64url(payload) + "." + base64url(HMAC-SHA256)) — same
+// idea as a JWT (signed, tamper-evident, expiring) without pulling in a JWT library for one
+// call site. Binds a verified CUG login to a single district_id so a leaked/guessed
+// X-API-Secret alone can no longer be used to lock or overwrite an arbitrary district: POST /
+// now also requires this token and checks its districtId matches the row being written.
+function b64urlEncode(bytes) {
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function b64urlDecodeToBytes(str) {
+  const pad = str.length % 4 === 0 ? "" : "=".repeat(4 - (str.length % 4));
+  const b64 = str.replace(/-/g, "+").replace(/_/g, "/") + pad;
+  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+}
+async function hmacKey(secret) {
+  return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+}
+async function signDeoToken(districtId, secret) {
+  const payload = JSON.stringify({ districtId, exp: Date.now() + DEO_SESSION_TTL_SECONDS * 1000 });
+  const payloadB64 = b64urlEncode(new TextEncoder().encode(payload));
+  const key = await hmacKey(secret);
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payloadB64));
+  return `${payloadB64}.${b64urlEncode(new Uint8Array(sig))}`;
+}
+async function verifyDeoToken(token, secret) {
+  if (!token || !token.includes(".")) return null;
+  const [payloadB64, sigB64] = token.split(".");
+  const key = await hmacKey(secret);
+  const valid = await crypto.subtle.verify("HMAC", key, b64urlDecodeToBytes(sigB64), new TextEncoder().encode(payloadB64));
+  if (!valid) return null;
+  try {
+    const payload = JSON.parse(new TextDecoder().decode(b64urlDecodeToBytes(payloadB64)));
+    if (typeof payload.exp !== "number" || payload.exp < Date.now()) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+function getCookie(request, name) {
+  const header = request.headers.get("Cookie") || "";
+  const match = header.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+  return match ? match[1] : null;
+}
+
 export default {
   async fetch(request, env) {
-    // 1. Setup CORS so your frontend can communicate with this API safely
+    // 1. CORS — frontend (Pages) and this API (Worker) are separate origins, and the DEO
+    // session cookie requires credentials mode, which forbids the "*" wildcard. Only the
+    // configured frontend origin gets Allow-Origin + Allow-Credentials.
+    const origin = request.headers.get("Origin");
     const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, X-API-Secret",
     };
+    if (origin && origin === env.FRONTEND_URL) {
+      corsHeaders["Access-Control-Allow-Origin"] = origin;
+      corsHeaders["Access-Control-Allow-Credentials"] = "true";
+    }
 
     // Handle CORS preflight requests
     if (request.method === "OPTIONS") {
@@ -134,13 +186,26 @@ export default {
         ).bind(cug_hash).first();
 
         if (result) {
-          return Response.json({ success: true, district_id: result.id, district_name: result.district_name }, { headers: corsHeaders });
+          const token = await signDeoToken(result.id, env.JWT_SECRET);
+          const cookie = `${DEO_SESSION_COOKIE}=${token}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${DEO_SESSION_TTL_SECONDS}`;
+          return Response.json(
+            { success: true, district_id: result.id, district_name: result.district_name },
+            { headers: { ...corsHeaders, "Set-Cookie": cookie } },
+          );
         } else {
           return Response.json({ success: false, error: "Unauthorized" }, { status: 401, headers: corsHeaders });
         }
       } catch (err) {
         return Response.json({ error: "Verification Failed" }, { status: 500, headers: corsHeaders });
       }
+    }
+
+    // ---------------------------------------------------------
+    // ROUTE: /deo-logout (clears the httpOnly session cookie)
+    // ---------------------------------------------------------
+    if (request.method === "POST" && url.pathname === "/deo-logout") {
+      const cookie = `${DEO_SESSION_COOKIE}=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0`;
+      return Response.json({ success: true }, { headers: { ...corsHeaders, "Set-Cookie": cookie } });
     }
 
     try {
@@ -169,6 +234,17 @@ export default {
           url.pathname === "")
       ) {
         const body = await request.json();
+
+        // Require a verified DEO session bound to this exact district — without this, knowing
+        // the (necessarily client-visible) X-API-Secret alone would let anyone lock/overwrite
+        // any district by guessing its id.
+        const session = await verifyDeoToken(getCookie(request, DEO_SESSION_COOKIE), env.JWT_SECRET);
+        if (!session || session.districtId !== body.id) {
+          return Response.json(
+            { error: "Unauthorized: no verified session for this district" },
+            { status: 403, headers: corsHeaders },
+          );
+        }
 
         // Update the financial records, lock the row, and record the DEO's name & time
         const stmt = env.DB.prepare(

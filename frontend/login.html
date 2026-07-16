@@ -125,6 +125,7 @@
 
                 const res = await fetch(API_URL + 'verify-deo', {
                     method: 'POST',
+                    credentials: 'include', // required to receive the httpOnly session cookie
                     headers: { 'Content-Type': 'application/json', 'X-API-Secret': API_SECRET },
                     body: JSON.stringify({ cug_hash: cugHash })
                 });

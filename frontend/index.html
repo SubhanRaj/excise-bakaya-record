@@ -305,7 +305,8 @@
 
             const { value: deoName } = await Swal.fire({
                 title: 'Verify & Lock Record',
-                html: '<p lang="hi">लॉक करने के पश्चात यह रिकॉर्ड <strong class="text-danger">पुनः संपादित नहीं</strong> किया जा सकेगा। कृपया जिला आबकारी अधिकारी का नाम दर्ज करें:</p>',
+                html: '<p>Enter the full name of the District Excise Officer confirming this submission. By locking, you confirm the data is accurate — <strong class="text-danger">any incorrect data or error is the submitting DEO\'s individual responsibility</strong>, who will be personally liable for it.</p>'
+                    + '<p lang="hi">इस सबमिशन की पुष्टि करने वाले जिला आबकारी अधिकारी का पूरा नाम दर्ज करें। लॉक करने पर, आप पुष्टि करते हैं कि डेटा सही है — <strong class="text-danger">किसी भी गलत डेटा या त्रुटि की जिम्मेदारी व्यक्तिगत रूप से संबंधित डीईओ की होगी</strong>, जो इसके लिए व्यक्तिगत रूप से उत्तरदायी होंगे।</p>',
                 input: 'text',
                 inputPlaceholder: 'अधिकारी का नाम',
                 inputAttributes: { maxlength: '80', autocomplete: 'off' },
@@ -334,6 +335,7 @@
                 try {
                     const res = await fetch(API_URL, {
                         method: 'POST',
+                        credentials: 'include', // sends the httpOnly DEO session cookie set at login
                         headers: { 'Content-Type': 'application/json', 'X-API-Secret': '63eefe946a94699dd661ebdd83150caec566e2c8c6cf63839165d4bf98f080f2' },
                         body: JSON.stringify(payload)
                     });
@@ -344,6 +346,11 @@
                         Swal.fire('Locked!', 'रिकॉर्ड सफलतापूर्वक सुरक्षित कर दिया गया है।', 'success').then(() => {
                             els.form.style.display = 'none';
                             els.lockMsg.classList.remove('d-none');
+                        });
+                    } else if (res.status === 403) {
+                        Swal.fire('Session Expired', 'आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें। / Your session has expired. Please log in again.', 'error').then(() => {
+                            localStorage.removeItem('cug_verified_district_id');
+                            location.href = 'login.html';
                         });
                     } else {
                         Swal.fire('Error', 'Failed to save records.', 'error');
@@ -369,6 +376,13 @@
                 cancelButtonText: 'रद्द करें'
             });
             if (result.isConfirmed) {
+                try {
+                    await fetch(API_URL + 'deo-logout', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'X-API-Secret': '63eefe946a94699dd661ebdd83150caec566e2c8c6cf63839165d4bf98f080f2' }
+                    });
+                } catch (err) { /* best-effort — clearing localStorage below still logs the browser out */ }
                 localStorage.removeItem('cug_verified_district_id');
                 location.href = 'login.html';
             }
