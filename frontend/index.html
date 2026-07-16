@@ -121,6 +121,7 @@
                                         </div>
                                     </div>
                                 </div>
+                                <div id="batteError" class="text-danger small mt-1 d-none fw-bold"></div>
                             </div>
 
                             <div class="col-md-12 mt-4">
@@ -142,6 +143,7 @@
                                         </div>
                                     </div>
                                 </div>
+                                <div id="courtError" class="text-danger small mt-1 d-none fw-bold"></div>
                             </div>
 
                             <div class="col-md-12 mt-4">
@@ -258,16 +260,48 @@
             const total = parseFloat(currentRecord.total_dues) || 0;
             const tillPac = parseFloat(currentRecord.collected_till_date) || 0;
             const afterPac = parseFloat(cleaveAfterPac.getRawValue()) || 0;
+            const batteCount = parseInt(els.batteKhatteCount.value) || 0;
             const batteAmt = parseFloat(cleaveBatte.getRawValue()) || 0;
-            const court = parseFloat(cleaveCourt.getRawValue()) || 0;
+            const courtCount = parseInt(els.courtCaseCount.value) || 0;
+            const courtAmt = parseFloat(cleaveCourt.getRawValue()) || 0;
             const duesLeft = total - tillPac - afterPac;
 
             els.duesLeft.value = indianCurrencyFormatter.format(duesLeft);
-            els.finalRecovery.value = indianCurrencyFormatter.format(Math.max(0, duesLeft - batteAmt - court));
+            els.finalRecovery.value = indianCurrencyFormatter.format(Math.max(0, duesLeft - batteAmt - courtAmt));
 
-            els.btn.disabled = (batteAmt > duesLeft) || (court > (duesLeft - batteAmt));
+            let batteValid = true;
+            let courtValid = true;
+            const batteErrorEl = document.getElementById('batteError');
+            if (batteAmt > 0 && batteCount === 0) {
+                batteErrorEl.textContent = "त्रुटि: धनराशि दर्ज होने पर संख्या शून्य (0) नहीं हो सकती। / Count cannot be 0 if amount is > 0.";
+                batteErrorEl.classList.remove('d-none');
+                batteValid = false;
+            } else if (batteCount > 0 && batteAmt === 0) {
+                batteErrorEl.textContent = "त्रुटि: संख्या दर्ज होने पर धनराशि शून्य (0) नहीं हो सकती। / Amount cannot be 0 if count is > 0.";
+                batteErrorEl.classList.remove('d-none');
+                batteValid = false;
+            } else {
+                batteErrorEl.classList.add('d-none');
+            }
+
+            const courtErrorEl = document.getElementById('courtError');
+            if (courtAmt > 0 && courtCount === 0) {
+                courtErrorEl.textContent = "त्रुटि: धनराशि दर्ज होने पर संख्या शून्य (0) नहीं हो सकती। / Count cannot be 0 if amount is > 0.";
+                courtErrorEl.classList.remove('d-none');
+                courtValid = false;
+            } else if (courtCount > 0 && courtAmt === 0) {
+                courtErrorEl.textContent = "त्रुटि: संख्या दर्ज होने पर धनराशि शून्य (0) नहीं हो सकती। / Amount cannot be 0 if count is > 0.";
+                courtErrorEl.classList.remove('d-none');
+                courtValid = false;
+            } else {
+                courtErrorEl.classList.add('d-none');
+            }
+
+            els.btn.disabled = (batteAmt > duesLeft) || (courtAmt > (duesLeft - batteAmt)) || !batteValid || !courtValid;
         }
 
+        document.getElementById('batteKhatteCount').addEventListener('input', calculateMath);
+        document.getElementById('courtCaseCount').addEventListener('input', calculateMath);
         document.getElementById('afterPac').addEventListener('input', calculateMath);
         document.getElementById('batteKhatteAmount').addEventListener('input', calculateMath);
         document.getElementById('courtStayed').addEventListener('input', calculateMath);
