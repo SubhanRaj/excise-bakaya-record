@@ -111,3 +111,38 @@ brute-forced in well under three hours.
 Verified locally via `wrangler dev`: `/unlock`/`/truncate-demo` 403 with no cookie, 200 with a
 valid `admin_session` cookie; wrong PIN still 401; 11th `/auth` attempt in a 15-minute window
 returns 429.
+
+## 10. Excel export: ExcelJS swap; Admin login page
+
+- **Bug found comparing against `excise-revenue-recovery-portal`**: that project deliberately
+  moved its Excel export off `xlsx-js-style` (the exact library `admin.html` still used) onto
+  ExcelJS, with a code comment explaining why — neither stock `xlsx` nor the `xlsx-js-style` fork
+  write frozen-pane XML at all, confirmed by inspecting the actual output file. Our
+  `ws['!views'] = [{ state: 'frozen', ... }]` call was a silent no-op; there was also no page
+  setup at all (no paper size/orientation/fit-to-width/print-titles), which that same
+  SheetJS-community core can't write either.
+  - **Fix**: swapped the CDN script (`xlsx-js-style@1.2.0` → `exceljs@4.4.0`, same version the
+    recovery portal already runs in production) and rewrote `exportToExcel()` in `admin.html`
+    against ExcelJS's API. Same single-sheet layout (title banner, header, per-district rows,
+    green TOTAL row, ₹ currency format) as before, plus: real frozen title+header rows, A4
+    landscape with fit-to-width, and a repeated header row (`_xlnm.Print_Titles`) on multi-page
+    printouts.
+  - **Verified, not assumed**: ported the exact cell-building logic into a throwaway Node script
+    against the `exceljs` npm package, wrote a real `.xlsx`, unzipped it, and grepped
+    `xl/worksheets/sheet1.xml` for the actual `<pane .../>` element and `<pageSetup .../>`, plus
+    `xl/workbook.xml` for the `_xlnm.Print_Titles` defined name — all three present and correct
+    before touching the shipped file.
+- **`frontend/admin-login.html`** (new) — Admin PIN login as its own full page, mirroring
+  `login.html`'s visual design (card, brand badge, inline `#loginError` banner) but red-accented
+  and PIN-only, no CUG/DEO option. `admin.html`'s `authenticateAdmin()` no longer shows a blocking
+  `Swal.fire({ input: 'password' })` prompt on a blurred dashboard — it just checks
+  `sessionStorage`'s `admin_auth` flag and redirects to `admin-login.html` if absent, same pattern
+  `index.html`/`login.html` already used for the DEO side. `logoutAdmin()` and
+  `sessionExpiredAdmin()` redirect there too instead of `location.reload()`.
+- Root `/` (`index.html`) already redirected unauthenticated visitors to `login.html` (added in
+  §7) — no change needed there, just confirmed it's the DEO-side equivalent of what
+  `admin.html` → `admin-login.html` now does for Admin.
+
+Local testing: static file server confirmed all 5 pages (`login.html`, `index.html`,
+`admin-login.html`, `admin.html`, plus the ExcelJS CDN swap) serve and parse without JS syntax
+errors before deploy.

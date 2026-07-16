@@ -79,14 +79,15 @@ overview. Rules to preserve:
   because both cookies require `Access-Control-Allow-Credentials: true` and the fetch spec
   forbids combining that with `*`. Every frontend fetch that needs a cookie sent must pass
   `credentials: 'include'` (`login.html`'s `/verify-deo` call; `index.html`'s `POST /` and
-  `/deo-logout`; `admin.html`'s `/auth`, `/unlock`, `/truncate-demo`, `/admin-logout`) — a route
-  added without this will silently fail to receive/send the cookie.
+  `/deo-logout`; `admin-login.html`'s `/auth`; `admin.html`'s `/unlock`, `/truncate-demo`,
+  `/admin-logout`) — a route added without this will silently fail to receive/send the cookie.
 - **Admin auth is a separate system from the DEO session** (`ADMIN_PIN` Wrangler secret, `/auth`
-  route) — an Admin and a DEO can be logged in in the same browser simultaneously. It is **not**
+  route) — an Admin and a DEO can be logged in in the same browser simultaneously, entirely
+  separate login pages (`admin-login.html` vs. `login.html`), no shared session. It is **not**
   PIN-only, though: `/auth` on success also signs an `admin_session` cookie (role-only payload, no
   district), and `/unlock`/`/truncate-demo` require it (403 without it) — `isAdminSession()` in
-  `worker.js`. `sessionStorage`'s `admin_auth` flag is a client-side UI convenience only (skip the
-  PIN prompt if already set this tab); it proves nothing to the server. If you add another
+  `worker.js`. `sessionStorage`'s `admin_auth` flag is a client-side UI convenience only (skip
+  `admin-login.html` if already set this tab); it proves nothing to the server. If you add another
   admin-only write route, it must call `isAdminSession()` too — don't let a new admin route trust
   `X-API-Secret` alone, same rule as the DEO side. `/auth` also throttles PIN attempts specifically
   (10 per 15 min per IP, separate from the general rate limiter) since a 4-digit PIN is only 10,000
@@ -142,15 +143,22 @@ value never needs to appear in source; don't add it to a doc, comment, or commit
   confirms) — this mirrors the actual government form, unlike `excise-revenue-recovery-portal`
   (English-only UI chrome). Don't strip Hindi from DEO-facing strings.
 - **Feedback split**: field-level/login errors render **inline** (a red banner under the field —
-  see `login.html`'s `#loginError`), not as a popup. Multi-field or non-field-specific validation
-  errors (e.g. "some field is blank, could be any of five") use a SweetAlert2 **toast**
-  (`notifyToast()`). SweetAlert2 **modals** (`Swal.fire` without `toast: true`) are reserved for
-  blocking confirms before an irreversible action — locking a record, admin unlock, truncate-demo,
-  logout. Don't add a new blocking modal for a routine validation message; don't add a new inline
-  banner for an irreversible-action confirm.
+  see `login.html`'s and `admin-login.html`'s `#loginError`), not as a popup. Multi-field or
+  non-field-specific validation errors (e.g. "some field is blank, could be any of five") use a
+  SweetAlert2 **toast** (`notifyToast()`). SweetAlert2 **modals** (`Swal.fire` without
+  `toast: true`) are reserved for blocking confirms before an irreversible action — locking a
+  record, admin unlock, truncate-demo, logout. Don't add a new blocking modal for a routine
+  validation message; don't add a new inline banner for an irreversible-action confirm.
 - **No emojis anywhere in the UI** — Tabler Icons (webfont) only.
 - **₹ prefix** on every financial amount, Indian Lakh/Crore grouping via Cleave.js on DEO-input
   money fields — don't hand-roll number formatting.
+- **Excel export uses ExcelJS, not a SheetJS-family library.** `xlsx`/`xlsx-js-style`'s community
+  core silently drops frozen-pane and print-layout XML — confirmed both here and in
+  `excise-revenue-recovery-portal` by inspecting the actual output file. If you touch
+  `exportToExcel()` in `admin.html`, verify any `!views`/page-setup-equivalent change with a real
+  unzip-and-grep of the generated `.xlsx` (`<pane .../>`, `<pageSetup .../>` in
+  `xl/worksheets/sheet1.xml`), not just "no error thrown" — a silently no-op call is the exact bug
+  this was fixed for.
 - Destructive/irreversible admin actions (unlock, truncate-demo) use a red (`#dc2626`) confirm
   button and Hindi cancel text, matching the DEO-side lock/logout dialogs.
 

@@ -14,22 +14,28 @@ page, session auth).
 A monorepo, deliberately serverless with no build step.
 
 ### Frontend (`/frontend`) — Cloudflare Pages
-Static HTML/CSS/JS, no bundler (Webpack/Vite). Three pages:
-*   **`login.html`** — DEO-only CUG login. No admin option here (Admin PIN lives in `admin.html`).
-*   **`index.html`** — DEO data-entry form. Redirects to `login.html` if no verified session exists.
-*   **`admin.html`** — Admin dashboard (PIN-gated, separate from the DEO session).
+Static HTML/CSS/JS, no bundler (Webpack/Vite). Five pages, two login/app pairs:
+*   **`login.html`** → **`index.html`** — DEO-only CUG login, then the data-entry form.
+    `index.html` redirects to `login.html` if no verified session exists.
+*   **`admin-login.html`** → **`admin.html`** — Admin-only PIN login, then the dashboard.
+    `admin.html` redirects to `admin-login.html` if no verified session exists. Entirely separate
+    from the DEO pair — no shared login page, no shared session.
 
 Libraries:
 *   **Bootstrap 5 (CDN)** — grid, cards, base styling.
 *   **SweetAlert2** — reserved for blocking confirms before an irreversible action (locking a
     record, admin unlock, truncate-demo, logout) — see CLAUDE.md's UI conventions for the
-    inline-vs-modal split.
+    inline-vs-modal split. Login errors on both login pages are inline banners, not SweetAlert2.
 *   **Cleave.js** — real-time Indian Numeral (Lakh/Crore) input formatting on money fields.
 *   **DataTables + jQuery** — the Admin Dashboard's grid (search/sort/pagination/sticky headers).
 *   **Dexie.js** — IndexedDB cache on the Admin Dashboard so all districts load instantly on
     revisit, with an explicit Sync button to bypass the cache.
-*   **xlsx-js-style** (SheetJS fork with cell styling) — generates the Admin's `.xlsx` export
-    with real cell colors, frozen panes, and currency formatting, client-side.
+*   **ExcelJS** — generates the Admin's `.xlsx` export: real cell colors, currency formatting,
+    genuine frozen header rows, and A4-landscape/fit-to-width print setup with a repeated header
+    row on multi-page printouts. Not xlsx-js-style/SheetJS — confirmed (same finding as the
+    sibling `excise-revenue-recovery-portal`) that library's community core silently drops
+    frozen-pane and print-layout XML, so `!views`/page-setup calls against it do nothing in real
+    Excel despite not erroring.
 *   **Tabler Icons** (webfont) — all UI iconography. No emojis anywhere in the UI.
 
 ### Backend (`/api`) — Cloudflare Workers + D1
@@ -117,13 +123,15 @@ Computed reactively client-side in both `index.html` and `admin.html`, same form
 8.  **Logout** clears the cookie server-side (`POST /deo-logout`) and the localStorage flag, then
     redirects to `login.html`.
 
-## Admin Flow (`admin.html`)
+## Admin Flow (`admin-login.html` → `admin.html`)
 
-*   **PIN auth** — a separate flow from DEO CUG login; checked against the `ADMIN_PIN` Wrangler
-    secret via `POST /auth`, throttled to 10 attempts per 15 minutes per IP. On success, the
-    Worker signs a role-bound session token and sets it as an `HttpOnly; Secure; SameSite=None`
-    cookie (`admin_session`) — `sessionStorage`'s `admin_auth` flag is only a client-side "skip
-    the PIN prompt this tab" convenience; the cookie is what the server actually checks.
+*   **PIN auth (`admin-login.html`)** — a full page, separate from DEO CUG login; PIN checked
+    against the `ADMIN_PIN` Wrangler secret via `POST /auth`, throttled to 10 attempts per 15
+    minutes per IP. Errors render inline, not as a popup, same convention as `login.html`. On
+    success, the Worker signs a role-bound session token and sets it as an
+    `HttpOnly; Secure; SameSite=None` cookie (`admin_session`) — `sessionStorage`'s `admin_auth`
+    flag is only a client-side "skip the login page this tab" convenience; the cookie is what the
+    server actually checks. `admin.html` redirects to `admin-login.html` if that flag is absent.
 *   **Unlock** — resets `is_locked` to 0 for a district (`POST /unlock`), with a Hindi confirm
     dialog, so a DEO can re-submit. Requires the `admin_session` cookie (403 without it).
 *   **Truncate Demo** — `POST /truncate-demo` deletes only the row where
@@ -131,11 +139,13 @@ Computed reactively client-side in both `index.html` and `admin.html`, same form
     get the portal URL, to remove the account used for end-to-end testing. Also requires the
     `admin_session` cookie.
 *   **Logout** clears the cookie server-side (`POST /admin-logout`) before clearing
-    `sessionStorage`.
+    `sessionStorage` and redirecting back to `admin-login.html`.
 *   **Offline cache** (Dexie) for instant reloads, with a manual Sync button and an
     auto-sync-then-export on both export actions.
-*   **Excel export** (`xlsx-js-style`) — frozen header rows + first column, a summed totals row,
-    Indian Rupee formatting, generation timestamp in the header.
+*   **Excel export** (ExcelJS) — genuine frozen header row (verified: real `<pane>` XML, not a
+    silently-dropped `!views` call), A4-landscape print setup with fit-to-width and a repeated
+    header row on multi-page printouts, a summed totals row, Indian Rupee formatting, generation
+    timestamp in the header banner.
 *   **SQL export** — a timestamped `.sql` file of `UPDATE` statements for the whole dataset.
 
 ## API (`worker.js`)
