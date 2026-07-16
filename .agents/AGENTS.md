@@ -14,7 +14,7 @@ update this file to match rather than leaving them inconsistent.
     *   Vanilla HTML/JS/CSS for Frontend, no build step
     *   Bootstrap 5, SweetAlert2, Cleave.js, DataTables, Dexie.js, ExcelJS, Tabler Icons
 3.  **Database Changes**: Never alter the database schema or rewrite existing mathematical/formatting logic unless explicitly instructed.
-4.  **Remote/deploy actions require a fresh explicit go-ahead every time**: never run a `--remote` D1 command, `wrangler deploy`, or `git push` to `main` (which triggers the Pages deploy) without the user saying so for that specific change. Local `--local` D1 work and `wrangler dev` don't need to ask.
+4.  **Remote/deploy actions require a fresh explicit go-ahead every time**: never run a `--remote` D1 command, `wrangler deploy`, or `git push` to `main` (which triggers the GitHub Actions deploy) without the user saying so for that specific change. Local `--local` D1 work and `wrangler dev` don't need to ask.
 5.  **CORS**: `Access-Control-Allow-Origin` must stay an exact match against the `FRONTEND_URL` var, never a wildcard — the DEO session cookie requires `Access-Control-Allow-Credentials: true`, which the fetch spec forbids combining with `*`.
 6.  **Environment Variables**: Use Cloudflare Wrangler Secrets for sensitive values (`ADMIN_PIN`, `API_SECRET`, `JWT_SECRET`). `FRONTEND_URL` is a plain (non-secret) var in `wrangler.toml`.
 7.  **Never commit anything under `scripts_and_data/`** that isn't excluded by an existing `.gitignore` pattern (`*.sql`, `*.csv`, `*.txt`, `*.py`, `*hash*`) — that directory holds the department's real officer contact data. See CLAUDE.md's Security section for why this is a hard rule, not a style preference.

@@ -16,10 +16,10 @@ that spirit: the smallest diff that works, not a rewrite toward more structure.
 
 ## Repo shape
 
-`/frontend` (three plain HTML files, Cloudflare Pages, auto-deploys from `main` via GitHub
-integration — pushing to `main` *is* the deploy, no manual `wrangler pages deploy` step) and `/api`
+`/frontend` (static HTML files, Cloudflare Pages) and `/api`
 (one `worker.js`, Cloudflare Workers + D1) are separate origins in production
-(`excise-bakaya-form.pages.dev` / `excise-bakaya-api.shubhanraj2002.workers.dev`). No shared
+(`excise-bakaya-form.pages.dev` / `excise-bakaya-api.shubhanraj2002.workers.dev`). Auto-deployed
+via GitHub Actions (`deploy.yml`) on pushing to the `main` branch. No shared
 package, no bundler on either side — `worker.js` is deployed as-is by `wrangler deploy`, HTML
 files load every dependency from a CDN `<script>` tag.
 
@@ -166,12 +166,16 @@ value never needs to appear in source; don't add it to a doc, comment, or commit
   this was fixed for.
 - Destructive/irreversible admin actions (unlock, truncate-demo) use a red (`#dc2626`) confirm
   button and Hindi cancel text, matching the DEO-side lock/logout dialogs.
+## Deployment & CI/CD
+
+- Deploys are handled automatically via GitHub Actions:
+  - Pushing to `main` triggers `.github/workflows/deploy.yml` which deploys both the API and the frontend.
+  - Requires `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in GitHub Secrets.
+  - Manual triggers are available in the GitHub Actions tab.
+- CI tests (`.github/workflows/ci.yml`) run syntax validation on `worker.js` and verify frontend files exist on pushes and PRs to `main`.
 
 ## Known gaps / intentionally out of scope
 
-- No CI — deploys are a human (or agent, with explicit go-ahead) running `wrangler deploy` /
-  pushing to `main`. If this project ever gets a GitHub Actions workflow, remove the "push to main
-  IS the deploy" framing above and document the new flow instead.
 - Git history was scrubbed once (see Security above); it is not scrubbed automatically going
   forward — a future accidental commit of a gitignored-pattern-violating file still needs the same
   manual `git-filter-repo` + force-push treatment, this repo has no pre-commit hook preventing it.

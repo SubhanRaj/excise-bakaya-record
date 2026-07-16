@@ -287,7 +287,7 @@ export default {
         // Require a verified DEO session bound to this exact district — without this, knowing
         // the (necessarily client-visible) X-API-Secret alone would let anyone lock/overwrite
         // any district by guessing its id.
-        const session = await verifyDeoToken(getCookie(request, DEO_SESSION_COOKIE), env.JWT_SECRET);
+        const session = await verifyToken(getCookie(request, DEO_SESSION_COOKIE), env.JWT_SECRET);
         if (!session || session.districtId !== body.id) {
           return Response.json(
             { error: "Unauthorized: no verified session for this district" },

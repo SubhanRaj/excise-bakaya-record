@@ -196,6 +196,6 @@ this wasn't enforced and how it was fixed.
 5.  **Remote secrets** (one-time, or on rotation): `npx wrangler secret put JWT_SECRET` (and
     `API_SECRET`/`ADMIN_PIN`) from `/api`. `FRONTEND_URL` is a plain (non-secret) var in
     `wrangler.toml`.
-6.  **Deploy API**: `cd api && npx wrangler deploy`.
-7.  **Deploy frontend**: push to `main` — Cloudflare Pages auto-deploys from the GitHub
-    integration; no manual `wrangler pages deploy` needed.
+6.  **CI/CD & Deployment**: Pushing to the `main` branch automatically triggers GitHub Actions to test (`ci.yml`) and deploy (`deploy.yml`) both the frontend to Cloudflare Pages and the API Worker to Cloudflare Workers.
+    *   Requires `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` to be configured under your repository's GitHub Secrets.
+    *   Manual deployments can be run via the GitHub Actions tab.

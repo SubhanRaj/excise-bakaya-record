@@ -146,3 +146,11 @@ returns 429.
 Local testing: static file server confirmed all 5 pages (`login.html`, `index.html`,
 `admin-login.html`, `admin.html`, plus the ExcelJS CDN swap) serve and parse without JS syntax
 errors before deploy.
+
+## 11. DEO Save Fix & GitHub Actions Deployment Setup
+
+- **DEO Save/Submit Fix**: Fixed a critical runtime bug where the `POST /` save route crashed with a `ReferenceError` due to calling an undefined function `verifyDeoToken` instead of `verifyToken` in `api/worker.js`.
+- **GitHub Actions Workflows (`.github/workflows/`)**:
+  - Configured `ci.yml` to validate JS syntax (`node --check`) for the Worker and verify frontend file availability on every push and PR to the `main` branch.
+  - Configured `deploy.yml` to automatically build/deploy both the API (using `pnpm` and `pnpm run deploy`) and the frontend (via `npx wrangler pages deploy frontend`) to Cloudflare upon pushing to the `main` branch. Requires `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets.
+

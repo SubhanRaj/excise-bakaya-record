@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "api/**"
+      - "frontend/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "api/**"
+      - "frontend/**"
+      - ".github/workflows/ci.yml"
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'api/**'
+            frontend:
+              - 'frontend/**'
+
+  api:
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax Check
+        run: node --check api/worker.js
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify files exist
+        run: |
+          test -f frontend/index.html
+          test -f frontend/login.html
+          test -f frontend/admin.html
+          test -f frontend/admin-login.html

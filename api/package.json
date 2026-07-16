@@ -2,7 +2,8 @@
   "name": "excise-bakaya-api",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
   },
   "devDependencies": {
     "wrangler": "^3"
