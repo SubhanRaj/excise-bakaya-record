@@ -199,6 +199,12 @@
             if (!NAME_CHARS_RE.test(value.trim())) return 'कृपया मान्य नाम दर्ज करें (केवल अक्षर)!';
         }
 
+        // Excise Dept. CUG mobile numbers all start with this prefix. The seeded demo
+        // account is exempted (by hash, not by number, so the raw value never appears
+        // in shipped source) so it keeps working outside that range.
+        const CUG_PREFIX = '94544';
+        const DEMO_CUG_HASH = 'ce3a598687c8d2e5aa6bedad20e059b4a78cca0adad7e563b07998d5cd226b8c';
+
         async function sha256Hex(text) {
             const encoder = new TextEncoder();
             const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(text));
@@ -363,9 +369,15 @@
                 allowEscapeKey: false,
                 confirmButtonColor: '#0d6efd',
                 confirmButtonText: 'Verify',
-                inputValidator: (value) => {
+                inputValidator: async (value) => {
                     if (!value || value.length !== 10 || isNaN(value)) {
                         return 'कृपया सही 10-अंकीय नंबर दर्ज करें!';
+                    }
+                    if (!value.startsWith(CUG_PREFIX)) {
+                        const hash = await sha256Hex(value);
+                        if (hash !== DEMO_CUG_HASH) {
+                            return 'अमान्य CUG नंबर! / Invalid CUG number.';
+                        }
                     }
                 }
             });

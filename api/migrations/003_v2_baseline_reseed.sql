@@ -2,9 +2,14 @@
 -- Non-destructive: UPDATE by district_name, does not touch is_locked/deo_name/locked_at/cug_hash.
 -- Re-baselines total_dues and collected_till_date (now "collected till 08-Jul-2026") from the latest Excel export.
 
+-- Allahabad was renamed to Prayagraj in 2019; remote D1 still has the old name, must run before the row below.
+UPDATE excise_dues SET district_name = 'Prayagraj' WHERE district_name = 'Allahabad';
+-- 'Kheri' -> full official district name, must run before the row below.
+UPDATE excise_dues SET district_name = 'Lakhimpur Kheri' WHERE district_name = 'Kheri';
+
 UPDATE excise_dues SET total_dues = 2020788.2, collected_till_date = 297920 WHERE district_name = 'Agra';
 UPDATE excise_dues SET total_dues = 3729876, collected_till_date = 1431427 WHERE district_name = 'Aligarh';
-UPDATE excise_dues SET total_dues = 25673745.65, collected_till_date = 30732 WHERE district_name = 'Allahabad';
+UPDATE excise_dues SET total_dues = 25673745.65, collected_till_date = 30732 WHERE district_name = 'Prayagraj';
 UPDATE excise_dues SET total_dues = 800574, collected_till_date = 0 WHERE district_name = 'Ambedkar Nagar';
 UPDATE excise_dues SET total_dues = 2830219.04, collected_till_date = 500170 WHERE district_name = 'Amethi';
 UPDATE excise_dues SET total_dues = 3025397.87, collected_till_date = 37646 WHERE district_name = 'Ayodhya';
@@ -38,7 +43,7 @@ UPDATE excise_dues SET total_dues = 406870.07, collected_till_date = 28218 WHERE
 UPDATE excise_dues SET total_dues = 25228987.38, collected_till_date = 109880 WHERE district_name = 'Kanpur Nagar';
 UPDATE excise_dues SET total_dues = 12963391, collected_till_date = 3059803 WHERE district_name = 'Kasganj';
 UPDATE excise_dues SET total_dues = 3222999, collected_till_date = 502250 WHERE district_name = 'Kaushambi';
-UPDATE excise_dues SET total_dues = 9096388, collected_till_date = 3323416 WHERE district_name = 'Kheri';
+UPDATE excise_dues SET total_dues = 9096388, collected_till_date = 3323416 WHERE district_name = 'Lakhimpur Kheri';
 UPDATE excise_dues SET total_dues = 1418484, collected_till_date = 165000 WHERE district_name = 'Lalitpur';
 UPDATE excise_dues SET total_dues = 33539009.09, collected_till_date = 687040 WHERE district_name = 'Lucknow';
 UPDATE excise_dues SET total_dues = 547465, collected_till_date = 344283 WHERE district_name = 'Mahoba';

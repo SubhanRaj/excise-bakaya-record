@@ -11,6 +11,7 @@ CREATE TABLE excise_dues (
     court_stayed_amount REAL DEFAULT 0,
     is_locked INTEGER DEFAULT 0,
     deo_name TEXT,
+    deo_email TEXT,
     cug_hash TEXT,
     locked_at DATETIME,
     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP

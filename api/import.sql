@@ -3,7 +3,7 @@ DELETE FROM excise_dues;
 INSERT INTO excise_dues (district_name, total_dues, collected_till_date) VALUES
 ('Agra', 2020788.2, 297920),
 ('Aligarh', 3729876, 1431427),
-('Allahabad', 25673745.65, 30732),
+('Prayagraj', 25673745.65, 30732),
 ('Ambedkar Nagar', 800574, 0),
 ('Amethi', 2830219.04, 500170),
 ('Ayodhya', 3025397.87, 37646),
@@ -37,7 +37,7 @@ INSERT INTO excise_dues (district_name, total_dues, collected_till_date) VALUES
 ('Kanpur Nagar', 25228987.38, 109880),
 ('Kasganj', 12963391, 3059803),
 ('Kaushambi', 3222999, 502250),
-('Kheri', 9096388, 3323416),
+('Lakhimpur Kheri', 9096388, 3323416),
 ('Lalitpur', 1418484, 165000),
 ('Lucknow', 33539009.09, 687040),
 ('Mahoba', 547465, 344283),
@@ -60,3 +60,7 @@ INSERT INTO excise_dues (district_name, total_dues, collected_till_date) VALUES
 ('Sultanpur', 2801655.46, 593669),
 ('Unnao', 20125331.26, 137731),
 ('Varanasi', 17291040.24, 1502932);
+
+-- Demo District for end-to-end testing (admin can truncate it via /truncate-demo before real DEOs get the URL).
+INSERT INTO excise_dues (district_name, total_dues, collected_till_date, cug_hash) VALUES
+('Demo District', 100000, 50000, 'ce3a598687c8d2e5aa6bedad20e059b4a78cca0adad7e563b07998d5cd226b8c');
