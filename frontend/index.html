@@ -55,14 +55,13 @@
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label fw-bold text-danger">1. Select District</label>
-                        <select id="districtSelect" class="form-select form-select-lg">
-                            <option value="">-- Loading Districts --</option>
-                        </select>
+                        <label class="form-label fw-bold text-danger">1. District Name</label>
+                        <h4 id="districtNameDisplay" class="text-danger fw-bold mb-1">-- Loading District --</h4>
                         <div class="text-muted small mt-2 fw-bold text-danger">
                             * घोषणा: यह प्रमाणित किया जाता है कि उपर्युक्त भरा गया डेटा पूर्णतः सत्य, प्रामाणिक एवं
                             विभागीय अभिलेखों के अनुसार है।
                         </div>
+                        <select id="districtSelect" class="d-none"></select>
                     </div>
 
                     <div id="lockMessage" class="alert alert-warning d-none text-center fw-bold">
@@ -395,7 +394,10 @@
             const savedDistrictId = localStorage.getItem('cug_verified_district_id');
             document.body.classList.remove('blur-body');
             els.select.value = savedDistrictId;
-            els.select.disabled = true;
+            const selectedOpt = els.select.options[els.select.selectedIndex];
+            if (selectedOpt) {
+                document.getElementById('districtNameDisplay').textContent = selectedOpt.textContent;
+            }
             document.getElementById('btnDeoLogout').classList.remove('d-none');
             els.select.dispatchEvent(new Event('change'));
         }
