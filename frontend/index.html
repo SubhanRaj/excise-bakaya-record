@@ -92,8 +92,7 @@
                                     धनराशि</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₹</span>
-                                    <input type="text" id="afterPac" class="form-control border-primary format-inr"
-                                        required>
+                                    <input type="text" id="afterPac" class="form-control border-primary format-inr">
                                 </div>
                             </div>
 
@@ -113,14 +112,14 @@
                                         <div class="input-group">
                                             <span class="input-group-text bg-light">Count</span>
                                             <input type="number" id="batteKhatteCount"
-                                                class="form-control border-primary" min="0" placeholder="0" required>
+                                                class="form-control border-primary" min="0" placeholder="0">
                                         </div>
                                     </div>
                                     <div class="col-md-8">
                                         <div class="input-group">
                                             <span class="input-group-text">₹ Amount</span>
                                             <input type="text" id="batteKhatteAmount"
-                                                class="form-control border-primary format-inr" required>
+                                                class="form-control border-primary format-inr">
                                         </div>
                                     </div>
                                 </div>
@@ -134,14 +133,14 @@
                                         <div class="input-group">
                                             <span class="input-group-text bg-light">Count</span>
                                             <input type="number" id="courtCaseCount"
-                                                class="form-control border-primary" min="0" placeholder="0" required>
+                                                class="form-control border-primary" min="0" placeholder="0">
                                         </div>
                                     </div>
                                     <div class="col-md-8">
                                         <div class="input-group">
                                             <span class="input-group-text">₹ Amount</span>
                                             <input type="text" id="courtStayed"
-                                                class="form-control border-primary format-inr" required>
+                                                class="form-control border-primary format-inr">
                                         </div>
                                     </div>
                                 </div>
@@ -205,6 +204,16 @@
         const CUG_PREFIX = '94544';
         const DEMO_CUG_HASH = 'ce3a598687c8d2e5aa6bedad20e059b4a78cca0adad7e563b07998d5cd226b8c';
 
+        // Fire-and-forget corner toast for validation errors not tied to opening a blocking
+        // modal, same shape as the reference project's notifyToast (lib/alerts.ts).
+        function notifyToast(icon, title, text) {
+            Swal.fire({
+                toast: true, position: 'top-end', icon, title, text,
+                showConfirmButton: false, showCloseButton: true,
+                timer: text ? 4500 : 2000, timerProgressBar: true
+            });
+        }
+
         async function sha256Hex(text) {
             const encoder = new TextEncoder();
             const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(text));
@@ -245,11 +254,11 @@
                     els.form.style.display = 'block';
                     els.totalDues.value = indianCurrencyFormatter.format(currentRecord.total_dues);
                     els.tillPac.value = indianCurrencyFormatter.format(currentRecord.collected_till_date);
-                    cleaveAfterPac.setRawValue('0');
-                    els.batteKhatteCount.value = '0';
-                    cleaveBatte.setRawValue('0');
-                    els.courtCaseCount.value = '0';
-                    cleaveCourt.setRawValue('0');
+                    cleaveAfterPac.setRawValue('');
+                    els.batteKhatteCount.value = '';
+                    cleaveBatte.setRawValue('');
+                    els.courtCaseCount.value = '';
+                    cleaveCourt.setRawValue('');
                     calculateMath();
                 }
             } else {
@@ -280,6 +289,32 @@
         els.form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
+            // None of the DEO-entered fields may be left blank — 0 is a valid, explicit answer,
+            // but an empty field is not (it silently became 0 before, hiding real data-entry gaps).
+            const blank = cleaveAfterPac.getRawValue().trim() === ''
+                || els.batteKhatteCount.value.trim() === ''
+                || cleaveBatte.getRawValue().trim() === ''
+                || els.courtCaseCount.value.trim() === ''
+                || cleaveCourt.getRawValue().trim() === '';
+            if (blank) {
+                return notifyToast('error', 'फ़ील्ड खाली है / Field left blank',
+                    'कृपया कोई भी फ़ील्ड खाली न छोड़ें। यदि कोई राशि/संख्या शून्य है तो 0 दर्ज करें। / Please do not leave any field blank. Enter 0 if there is no amount or count.');
+            }
+
+            // Two-step confirm, both blocking since locking is irreversible without an Admin
+            // unlock: first a plain "have you checked the data" confirm, then the name-entry
+            // prompt with its own liability disclaimer.
+            const preConfirm = await Swal.fire({
+                icon: 'warning',
+                title: 'क्या आप सुनिश्चित हैं? / Are you sure?',
+                html: '<p lang="hi">कृपया आगे बढ़ने से पहले सुनिश्चित करें कि सभी जानकारी सही है। एक बार लॉक होने के बाद इसे <strong class="text-danger">संपादित नहीं किया जा सकता</strong> — किसी भी सुधार के लिए एडमिन / आबकारी मुख्यालय से संपर्क करना होगा।</p><p>Please verify every field is correct before continuing. Once locked, this submission <strong class="text-danger">cannot be edited</strong> — any correction requires contacting the Admin / Excise Headquarters.</p>',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                confirmButtonText: 'हाँ, डेटा सही है / Yes, data is correct',
+                cancelButtonText: 'दोबारा जाँचें / Let me check again'
+            });
+            if (!preConfirm.isConfirmed) return;
+
             const { value: deoName } = await Swal.fire({
                 title: 'Verify & Lock Record',
                 html: '<p lang="hi">लॉक करने के पश्चात यह रिकॉर्ड <strong class="text-danger">पुनः संपादित नहीं</strong> किया जा सकेगा। कृपया जिला आबकारी अधिकारी का नाम दर्ज करें:</p>',
@@ -287,6 +322,7 @@
                 inputPlaceholder: 'अधिकारी का नाम',
                 inputAttributes: { maxlength: '80', autocomplete: 'off' },
                 showCancelButton: true,
+                allowOutsideClick: false,
                 confirmButtonColor: '#dc2626',
                 confirmButtonText: 'Lock Record',
                 cancelButtonText: 'रद्द करें',
