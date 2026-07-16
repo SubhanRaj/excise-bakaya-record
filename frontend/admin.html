@@ -230,6 +230,7 @@
                     Swal.showLoading();
                     const res = await fetch(API_URL + 'auth', {
                         method: 'POST',
+                        credentials: 'include', // required to receive the httpOnly admin session cookie
                         headers: { 'Content-Type': 'application/json', 'X-API-Secret': '63eefe946a94699dd661ebdd83150caec566e2c8c6cf63839165d4bf98f080f2' },
                         body: JSON.stringify({ pin: pin })
                     });
@@ -253,7 +254,21 @@
             }
         }
 
-        function logoutAdmin() {
+        function sessionExpiredAdmin() {
+            Swal.fire('Session Expired', 'आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें। / Your session has expired. Please log in again.', 'error').then(() => {
+                sessionStorage.removeItem('admin_auth');
+                location.reload();
+            });
+        }
+
+        async function logoutAdmin() {
+            try {
+                await fetch(API_URL + 'admin-logout', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'X-API-Secret': '63eefe946a94699dd661ebdd83150caec566e2c8c6cf63839165d4bf98f080f2' }
+                });
+            } catch (err) { /* best-effort — clearing sessionStorage below still logs the browser out */ }
             sessionStorage.removeItem('admin_auth');
             location.reload();
         }
@@ -400,6 +415,7 @@
                 try {
                     const res = await fetch(API_URL + "unlock", {
                         method: 'POST',
+                        credentials: 'include',
                         headers: { 'Content-Type': 'application/json', 'X-API-Secret': '63eefe946a94699dd661ebdd83150caec566e2c8c6cf63839165d4bf98f080f2' },
                         body: JSON.stringify({ id: id })
                     });
@@ -408,6 +424,8 @@
                         Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Unlocked Successfully', showConfirmButton: false, timer: 2000 });
                         // Also trigger a re-sync
                         syncData(false);
+                    } else if (res.status === 403) {
+                        sessionExpiredAdmin();
                     } else {
                         Swal.fire('Error', 'Failed to unlock.', 'error');
                     }
@@ -432,12 +450,15 @@
                 try {
                     const res = await fetch(API_URL + "truncate-demo", {
                         method: 'POST',
+                        credentials: 'include',
                         headers: { 'Content-Type': 'application/json', 'X-API-Secret': '63eefe946a94699dd661ebdd83150caec566e2c8c6cf63839165d4bf98f080f2' }
                     });
 
                     if (res.ok) {
                         Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Demo District Deleted', showConfirmButton: false, timer: 2000 });
                         syncData(false);
+                    } else if (res.status === 403) {
+                        sessionExpiredAdmin();
                     } else {
                         const data = await res.json();
                         Swal.fire('Error', data.error || 'Failed to truncate.', 'error');

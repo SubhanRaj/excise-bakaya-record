@@ -3,12 +3,21 @@ const rateLimitMap = new Map();
 
 const DEO_SESSION_COOKIE = "deo_session";
 const DEO_SESSION_TTL_SECONDS = 60 * 60 * 24; // 1 day — DEOs verify once per data-entry sitting
+const ADMIN_SESSION_COOKIE = "admin_session";
+const ADMIN_SESSION_TTL_SECONDS = 60 * 60 * 4; // 4 hours — matches the old sessionStorage-dies-with-tab feel
+
+// In-memory brute-force throttle for /auth specifically — a 4-digit PIN is only 10,000
+// combinations, well within what the general 60 req/min limit below would allow an attacker to
+// exhaust. Separate map/key from rateLimitMap so it doesn't get crowded out by normal traffic.
+const authAttemptsMap = new Map();
+const AUTH_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const AUTH_MAX_ATTEMPTS = 10;
 
 // Minimal HMAC-signed session token (base64url(payload) + "." + base64url(HMAC-SHA256)) — same
-// idea as a JWT (signed, tamper-evident, expiring) without pulling in a JWT library for one
-// call site. Binds a verified CUG login to a single district_id so a leaked/guessed
-// X-API-Secret alone can no longer be used to lock or overwrite an arbitrary district: POST /
-// now also requires this token and checks its districtId matches the row being written.
+// idea as a JWT (signed, tamper-evident, expiring) without pulling in a JWT library for two call
+// sites. Used for both the DEO session (bound to a district_id) and the Admin session (bound to
+// a role) so a leaked/guessed X-API-Secret alone can no longer be used to write DEO data or hit
+// an admin-only route.
 function b64urlEncode(bytes) {
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
@@ -20,14 +29,13 @@ function b64urlDecodeToBytes(str) {
 async function hmacKey(secret) {
   return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
-async function signDeoToken(districtId, secret) {
-  const payload = JSON.stringify({ districtId, exp: Date.now() + DEO_SESSION_TTL_SECONDS * 1000 });
-  const payloadB64 = b64urlEncode(new TextEncoder().encode(payload));
+async function signToken(payload, secret) {
+  const payloadB64 = b64urlEncode(new TextEncoder().encode(JSON.stringify(payload)));
   const key = await hmacKey(secret);
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payloadB64));
   return `${payloadB64}.${b64urlEncode(new Uint8Array(sig))}`;
 }
-async function verifyDeoToken(token, secret) {
+async function verifyToken(token, secret) {
   if (!token || !token.includes(".")) return null;
   const [payloadB64, sigB64] = token.split(".");
   const key = await hmacKey(secret);
@@ -40,6 +48,16 @@ async function verifyDeoToken(token, secret) {
   } catch {
     return null;
   }
+}
+function signDeoToken(districtId, secret) {
+  return signToken({ districtId, exp: Date.now() + DEO_SESSION_TTL_SECONDS * 1000 }, secret);
+}
+function signAdminToken(secret) {
+  return signToken({ role: "admin", exp: Date.now() + ADMIN_SESSION_TTL_SECONDS * 1000 }, secret);
+}
+async function isAdminSession(request, env) {
+  const payload = await verifyToken(getCookie(request, ADMIN_SESSION_COOKIE), env.JWT_SECRET);
+  return !!payload && payload.role === "admin";
 }
 function getCookie(request, name) {
   const header = request.headers.get("Cookie") || "";
@@ -108,12 +126,29 @@ export default {
     // ROUTE: /auth (Admin Authentication via Wrangler Secrets)
     // ---------------------------------------------------------
     if (request.method === "POST" && url.pathname === "/auth") {
+      // Throttle PIN guesses specifically — a 4-digit PIN is only 10,000 combinations.
+      const authNow = Date.now();
+      let authRecord = authAttemptsMap.get(ip);
+      if (!authRecord || authNow > authRecord.resetTime) {
+        authRecord = { count: 0, resetTime: authNow + AUTH_WINDOW_MS };
+      }
+      authRecord.count++;
+      authAttemptsMap.set(ip, authRecord);
+      if (authRecord.count > AUTH_MAX_ATTEMPTS) {
+        return Response.json(
+          { error: "Too many attempts. Try again later." },
+          { status: 429, headers: corsHeaders },
+        );
+      }
+
       try {
         const { pin } = await request.json();
 
         // Securely compare the provided PIN against the encrypted Cloudflare Secret
         if (pin === env.ADMIN_PIN) {
-          return Response.json({ success: true }, { headers: corsHeaders });
+          const token = await signAdminToken(env.JWT_SECRET);
+          const cookie = `${ADMIN_SESSION_COOKIE}=${token}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${ADMIN_SESSION_TTL_SECONDS}`;
+          return Response.json({ success: true }, { headers: { ...corsHeaders, "Set-Cookie": cookie } });
         } else {
           return Response.json(
             { success: false },
@@ -129,9 +164,20 @@ export default {
     }
 
     // ---------------------------------------------------------
+    // ROUTE: /admin-logout (clears the httpOnly admin session cookie)
+    // ---------------------------------------------------------
+    if (request.method === "POST" && url.pathname === "/admin-logout") {
+      const cookie = `${ADMIN_SESSION_COOKIE}=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0`;
+      return Response.json({ success: true }, { headers: { ...corsHeaders, "Set-Cookie": cookie } });
+    }
+
+    // ---------------------------------------------------------
     // ROUTE: /unlock (Admin unlocks a district for re-entry)
     // ---------------------------------------------------------
     if (request.method === "POST" && url.pathname === "/unlock") {
+      if (!(await isAdminSession(request, env))) {
+        return Response.json({ error: "Unauthorized: admin session required" }, { status: 403, headers: corsHeaders });
+      }
       try {
         const data = await request.json();
 
@@ -155,6 +201,9 @@ export default {
     // ROUTE: /truncate-demo (Admin one-time clear demo data)
     // ---------------------------------------------------------
     if (request.method === "POST" && url.pathname === "/truncate-demo") {
+      if (!(await isAdminSession(request, env))) {
+        return Response.json({ error: "Unauthorized: admin session required" }, { status: 403, headers: corsHeaders });
+      }
       try {
         await env.DB.prepare(
           `DELETE FROM excise_dues WHERE district_name = 'Demo District'`

@@ -119,13 +119,19 @@ Computed reactively client-side in both `index.html` and `admin.html`, same form
 
 ## Admin Flow (`admin.html`)
 
-*   **PIN auth** — a separate flow from DEO CUG login; `sessionStorage`-based (dies with the tab),
-    checked against the `ADMIN_PIN` Wrangler secret via `POST /auth`.
+*   **PIN auth** — a separate flow from DEO CUG login; checked against the `ADMIN_PIN` Wrangler
+    secret via `POST /auth`, throttled to 10 attempts per 15 minutes per IP. On success, the
+    Worker signs a role-bound session token and sets it as an `HttpOnly; Secure; SameSite=None`
+    cookie (`admin_session`) — `sessionStorage`'s `admin_auth` flag is only a client-side "skip
+    the PIN prompt this tab" convenience; the cookie is what the server actually checks.
 *   **Unlock** — resets `is_locked` to 0 for a district (`POST /unlock`), with a Hindi confirm
-    dialog, so a DEO can re-submit.
+    dialog, so a DEO can re-submit. Requires the `admin_session` cookie (403 without it).
 *   **Truncate Demo** — `POST /truncate-demo` deletes only the row where
     `district_name = 'Demo District'`, hardcoded server-side — used once, right before real DEOs
-    get the portal URL, to remove the account used for end-to-end testing.
+    get the portal URL, to remove the account used for end-to-end testing. Also requires the
+    `admin_session` cookie.
+*   **Logout** clears the cookie server-side (`POST /admin-logout`) before clearing
+    `sessionStorage`.
 *   **Offline cache** (Dexie) for instant reloads, with a manual Sync button and an
     auto-sync-then-export on both export actions.
 *   **Excel export** (`xlsx-js-style`) — frozen header rows + first column, a summed totals row,
@@ -140,18 +146,19 @@ gates writes). In-memory sliding-window rate limiting (60 req/min per `cf-connec
 429 past that; the tracking `Map` self-clears past 5000 entries to bound memory).
 
 CORS is locked to the `FRONTEND_URL` Wrangler var (exact match, not a wildcard) with
-`Access-Control-Allow-Credentials: true` — required for the cross-site `deo_session` cookie
-(Pages and Workers are separate origins).
+`Access-Control-Allow-Credentials: true` — required for the cross-site `deo_session`/
+`admin_session` cookies (Pages and Workers are separate origins).
 
 | Route | Method | Purpose |
 |---|---|---|
 | `/` | GET | All district records (used for the DEO dropdown and the Admin table). |
 | `/` | POST | DEO submits + locks a district. Requires a `deo_session` cookie whose district matches `body.id` — see Auth. |
-| `/auth` | POST | Admin PIN check. |
-| `/unlock` | POST | Admin resets a district's lock. |
-| `/truncate-demo` | POST | Admin deletes the `Demo District` row only. |
+| `/auth` | POST | Admin PIN check; throttled 10/15min per IP. Sets `admin_session` on success. |
+| `/unlock` | POST | Admin resets a district's lock. Requires `admin_session`. |
+| `/truncate-demo` | POST | Admin deletes the `Demo District` row only. Requires `admin_session`. |
 | `/verify-deo` | POST | CUG hash lookup; on success, sets the `deo_session` cookie. |
 | `/deo-logout` | POST | Clears the `deo_session` cookie. |
+| `/admin-logout` | POST | Clears the `admin_session` cookie. |
 
 ## Scripts and Data (`scripts_and_data/`)
 

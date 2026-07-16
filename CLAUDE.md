@@ -72,17 +72,25 @@ overview. Rules to preserve:
   `worker.js`). `POST /` verifies this cookie and 403s if its `districtId` doesn't match
   `body.id`, even with a valid `X-API-Secret`. If you add another DEO-write route, it must perform
   this same check — don't let a new route trust `body.id`/`body.district_id` on its own.
-- **`JWT_SECRET`** (Wrangler secret) signs that cookie. **`FRONTEND_URL`** (plain var in
-  `wrangler.toml`) is the CORS allowlist — `Access-Control-Allow-Origin` is only ever set to an
-  exact match against it, never a wildcard, because the cookie requires
-  `Access-Control-Allow-Credentials: true` and the fetch spec forbids combining that with `*`.
-  Every frontend fetch that needs the cookie sent must pass `credentials: 'include'`
-  (`login.html`'s `/verify-deo` call, `index.html`'s `POST /` and `/deo-logout` calls) — a route
+- **`JWT_SECRET`** (Wrangler secret) signs that cookie, and the admin one below (`signToken`/
+  `verifyToken` are the shared generic helpers; `signDeoToken`/`signAdminToken` just fix the
+  payload shape). **`FRONTEND_URL`** (plain var in `wrangler.toml`) is the CORS allowlist —
+  `Access-Control-Allow-Origin` is only ever set to an exact match against it, never a wildcard,
+  because both cookies require `Access-Control-Allow-Credentials: true` and the fetch spec
+  forbids combining that with `*`. Every frontend fetch that needs a cookie sent must pass
+  `credentials: 'include'` (`login.html`'s `/verify-deo` call; `index.html`'s `POST /` and
+  `/deo-logout`; `admin.html`'s `/auth`, `/unlock`, `/truncate-demo`, `/admin-logout`) — a route
   added without this will silently fail to receive/send the cookie.
-- **Admin auth is a separate system**, `sessionStorage`-based PIN check (`ADMIN_PIN` Wrangler
-  secret, `/auth` route) — it does not use the DEO session cookie and isn't gated by it. Don't
-  merge these two auth paths; an Admin and a DEO can be logged in in the same browser
-  simultaneously (different storage: `sessionStorage` vs. a cookie + `localStorage`).
+- **Admin auth is a separate system from the DEO session** (`ADMIN_PIN` Wrangler secret, `/auth`
+  route) — an Admin and a DEO can be logged in in the same browser simultaneously. It is **not**
+  PIN-only, though: `/auth` on success also signs an `admin_session` cookie (role-only payload, no
+  district), and `/unlock`/`/truncate-demo` require it (403 without it) — `isAdminSession()` in
+  `worker.js`. `sessionStorage`'s `admin_auth` flag is a client-side UI convenience only (skip the
+  PIN prompt if already set this tab); it proves nothing to the server. If you add another
+  admin-only write route, it must call `isAdminSession()` too — don't let a new admin route trust
+  `X-API-Secret` alone, same rule as the DEO side. `/auth` also throttles PIN attempts specifically
+  (10 per 15 min per IP, separate from the general rate limiter) since a 4-digit PIN is only 10,000
+  combinations.
 - **Known open risk** (same class of issue as `excise-revenue-recovery-portal`, a sibling project
   with an identical cross-origin cookie setup): `SameSite=None` cross-site cookies between two
   different public-suffix domains (`pages.dev`, `workers.dev`) are exactly what Safari ITP and
@@ -148,10 +156,6 @@ value never needs to appear in source; don't add it to a doc, comment, or commit
 
 ## Known gaps / intentionally out of scope
 
-- Admin routes (`/auth`, `/unlock`, `/truncate-demo`) are gated only by `ADMIN_PIN` +
-  `X-API-Secret`, not a signed session token like the DEO side got in this round — `sessionStorage`
-  dying with the tab is the only session-expiry mechanism today. Deferred, not forgotten; ask
-  before changing it, since Admin PIN behavior wasn't part of this round's explicit scope.
 - No CI — deploys are a human (or agent, with explicit go-ahead) running `wrangler deploy` /
   pushing to `main`. If this project ever gets a GitHub Actions workflow, remove the "push to main
   IS the deploy" framing above and document the new flow instead.

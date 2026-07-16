@@ -89,3 +89,25 @@ Everything below is **live on remote** as of this rollout — not a plan, a reco
 **Trade-off noted, not yet acted on**: `SameSite=None` cross-site cookies between two different public-suffix domains (`pages.dev`, `workers.dev`) are exactly what Safari ITP and Chrome's third-party-cookie deprecation target — same open risk the reference project already carries with an identical setup. If a DEO reports "login succeeds but save always fails," check this before assuming the token logic is broken. The real fix would be collapsing both apps onto one zone; not done here since it's a bigger change than this round's scope.
 
 See [CLAUDE.md](./CLAUDE.md) for the durable rules this rollout established (district-name authority, auth boundary, security incident, validation rules) — this file stays a chronological record, CLAUDE.md is what future agents should actually follow.
+
+## 9. Admin auth hardening
+
+Same gap as §8 found on the Admin side: `/unlock` and `/truncate-demo` were gated only by
+`X-API-Secret` (necessarily public) — the PIN prompt in `admin.html` was purely a client-side UI
+gate, never checked server-side. Anyone reading `X-API-Secret` out of view-source could unlock or
+truncate-demo directly via curl, no PIN needed.
+
+Fixed with the same pattern as the DEO session, reusing the same signing helpers (generalized
+`signToken`/`verifyToken` in `worker.js`, with `signDeoToken`/`signAdminToken` as the two payload
+shapes — no new dependency, no new secret, `JWT_SECRET` covers both): `/auth` now signs a
+role-bound `admin_session` cookie on a correct PIN; `/unlock` and `/truncate-demo` require it and
+403 without it. Added `/admin-logout` to clear it. `admin.html`'s `sessionStorage` flag is
+unchanged as a same-tab UI convenience, but no longer anything the server trusts.
+
+Also throttled `/auth` specifically (10 attempts / 15 min per IP, separate map from the general
+rate limiter) — the general 60 req/min limit would let a 4-digit PIN (10,000 combinations) be
+brute-forced in well under three hours.
+
+Verified locally via `wrangler dev`: `/unlock`/`/truncate-demo` 403 with no cookie, 200 with a
+valid `admin_session` cookie; wrong PIN still 401; 11th `/auth` attempt in a 15-minute window
+returns 429.
